@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,6 +49,7 @@ export default function Onboarding() {
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
+    mode: "onChange",
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -59,6 +60,7 @@ export default function Onboarding() {
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    mode: "onChange",
     defaultValues: {
       email: "",
       password: "",
@@ -146,9 +148,11 @@ export default function Onboarding() {
   }
 
   // If user is authenticated but not onboarded, skip to topics
-  if (user && !user.isOnboarded && step === 'auth') {
-    setStep('topics');
-  }
+  useEffect(() => {
+    if (user && !user.isOnboarded && step === 'auth') {
+      setStep('topics');
+    }
+  }, [user, step]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
