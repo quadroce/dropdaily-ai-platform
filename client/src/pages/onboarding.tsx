@@ -49,7 +49,7 @@ export default function Onboarding() {
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
-    mode: "onChange",
+    mode: "onTouched",
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -60,7 +60,7 @@ export default function Onboarding() {
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    mode: "onChange",
+    mode: "onTouched",
     defaultValues: {
       email: "",
       password: "",
@@ -271,11 +271,15 @@ export default function Onboarding() {
                             <FormLabel>First Name</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <User className="absolute left-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
                                 <Input
                                   className="pl-10"
                                   placeholder="First name"
-                                  {...field}
+                                  value={field.value || ""}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  onBlur={field.onBlur}
+                                  name={field.name}
+                                  autoComplete="given-name"
                                 />
                               </div>
                             </FormControl>
@@ -292,7 +296,11 @@ export default function Onboarding() {
                             <FormControl>
                               <Input
                                 placeholder="Last name"
-                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                autoComplete="family-name"
                               />
                             </FormControl>
                             <FormMessage />
@@ -308,12 +316,16 @@ export default function Onboarding() {
                           <FormLabel>Email</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
                               <Input
                                 type="email"
                                 className="pl-10"
                                 placeholder="Enter your email"
-                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                autoComplete="email"
                               />
                             </div>
                           </FormControl>
@@ -329,12 +341,16 @@ export default function Onboarding() {
                           <FormLabel>Password</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
                               <Input
                                 type="password"
                                 className="pl-10"
                                 placeholder="Create a password (min. 6 characters)"
-                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                autoComplete="new-password"
                               />
                             </div>
                           </FormControl>
