@@ -1,0 +1,120 @@
+You are building **DropDaily**, an AI-powered content discovery platform that delivers a daily, personalized feed ("Daily Drop") to busy professionals. The app should be clean, fast, and modular. Please scaffold the full monorepo with all apps, packages, and features below.
+
+---
+
+## 🧱 Monorepo Structure
+
+Use a `pnpm` workspace with this structure:
+
+apps/
+web/ – User-facing React app
+admin/ – Admin dashboard for moderation
+functions/ – Supabase Edge Functions for content ingestion
+packages/
+ui/ – Shared design system (shadcn-ui)
+lib/ – Supabase client, embedding utils, helpers
+db/ – SQL migrations and schema (PostgreSQL + pgvector)
+
+yaml
+Copia
+Modifica
+
+---
+
+## 🧑‍💻 Tech Stack
+
+- React + Vite for web & admin
+- Tailwind CSS + shadcn-ui components
+- Supabase (Postgres + Auth + Edge Functions + Storage)
+- OpenAI Embeddings API
+- pgvector for content matching
+- Typescript everywhere
+
+---
+
+## 🔁 Core Features
+
+### 1. Daily Drop (User Feed)
+
+- Each user receives a *Daily Drop* of 1–3 AI-selected content items per day
+- Matching is based on topic preferences + vector similarity
+- If no content matches, fall back to a guaranteed "quality YouTube" item
+
+### 2. Content Ingestion (Automated)
+
+- Ingest from YouTube initially (via Edge Function every 6h)
+- Store metadata + transcription (if available)
+- Generate embeddings with OpenAI
+- Classify into topics and store in `content_topics` join table
+
+### 3. Content Submission (User-generated)
+
+- Logged-in users (content creators) can submit a link (YouTube, blog, etc.)
+- New table: `user_submissions` with fields: id, user_id, url, title, description, status
+- Submissions are auto-classified with same embedding + matching pipeline
+- Optional: moderation step before going live (status = 'pending' / 'approved')
+- Admin UI to approve/reject user submissions
+
+### 4. User Onboarding & Personalization
+
+- Topic selector at signup (multi-select)
+- Preferences saved in `user_preferences`
+- Vectors stored in `user_profile_vectors` (average of topic embeddings)
+- Used daily to compute similarity to incoming content
+
+### 5. Admin Dashboard
+
+- View all ingested content
+- Moderate user-submitted links
+- View ingestion status/logs
+- Trigger reclassification if needed
+
+### 6. Delivery Channels
+
+- Web app with daily drop feed
+- Daily email drop (batch job)
+- Telegram & Discord bots (to be integrated later)
+- WhatsApp support (Pro plan – future)
+
+---
+
+## 🧠 AI Integration
+
+- Use OpenAI API to:
+  - Embed content (title + transcript + description)
+  - Match to predefined topics using vector similarity
+- Topics are defined in a table with `name`, `description`, `embedding`
+- Matching threshold should be tunable
+
+---
+
+## 🧪 Developer Setup
+
+Include:
+
+- `pnpm install` for all packages
+- `.env.example` with keys for Supabase, OpenAI, YouTube
+- Supabase CLI support with `supabase start`
+- Script: `pnpm dev:web`, `pnpm dev:admin`, `pnpm test`
+
+---
+
+## 🔒 Auth & Security
+
+- Supabase Auth with RLS policies:
+  - Users can only see/edit their own submissions & preferences
+- Admin role flag in `auth.users` for dashboard access
+
+---
+
+## 🧭 Extras
+
+- Shared `utils.ts` with Tailwind `cn()` and helpers
+- Responsive design from start
+- Shallow routing between onboarding → feed
+- Postgres indices for pgvector similarity search
+
+---
+
+Please generate the full codebase accordingly, with clear separation of apps and packages.
+Prioritize extensibility, speed, and modularity.
