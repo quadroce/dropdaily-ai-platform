@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Mail,
   Database,
-  FileText
+  FileText,
+  Globe
 } from "lucide-react";
 
 interface FeedConfig {
@@ -144,6 +145,36 @@ export default function RSSAdmin() {
     fallbackIngestMutation.mutate();
   };
 
+  // Full ingestion mutation (RSS + Social Media)
+  const fullIngestMutation = useMutation({
+    mutationFn: async () => {
+      // Run RSS ingestion first
+      await apiRequest("POST", "/api/admin/rss/ingest", {});
+      // Then run social media ingestion
+      await apiRequest("POST", "/api/admin/social/ingest", {});
+      return { message: "Complete ingestion finished" };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Complete Ingestion Finished",
+        description: "RSS and Social Media content ingested successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/stats"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Complete Ingestion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFullIngestion = () => {
+    setLoading("full-ingest");
+    fullIngestMutation.mutate();
+  };
+
   const refreshData = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/feeds"] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/stats"] });
@@ -236,7 +267,44 @@ export default function RSSAdmin() {
       </div>
 
       {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {/* Complete Ingestion - RSS + Social Media */}
+        <Card className="border-2 border-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Globe className="h-5 w-5" />
+              Complete Ingestion
+            </CardTitle>
+            <CardDescription>
+              Run RSS feeds + Social Media ingestion together
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              This process will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Fetch all RSS feeds content</li>
+                <li>Ingest from X, YouTube, Reddit</li>
+                <li>AI classification and matching</li>
+                <li>Store new articles in database</li>
+              </ul>
+            </div>
+            <Button 
+              onClick={handleFullIngestion}
+              disabled={fullIngestMutation.isPending}
+              className="w-full"
+              size="lg"
+            >
+              {fullIngestMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Globe className="h-4 w-4 mr-2" />
+              )}
+              {fullIngestMutation.isPending ? "Running Complete..." : "Run Complete Ingestion"}
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* RSS Ingestion */}
         <Card>
           <CardHeader>

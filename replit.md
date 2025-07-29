@@ -24,6 +24,11 @@ Preferred communication style: Simple, everyday language.
 
 🗄️ **DATABASE OPTIMIZATION COMPLETED**: Implemented comprehensive content cleanup system with storage monitoring, automated retention policies, and admin interface at `/database-admin` to prevent unlimited table growth.
 
+🎯 **UI/UX IMPROVEMENTS COMPLETED**: 
+- **Unified Ingestion Button**: Single "Complete Ingestion" button for RSS+Social Media at `/rss-admin`
+- **Content Card Redesign**: Square images positioned on right side, improved layout and removed "0 article" text
+- **Saved Article Protection**: Articles marked as saved are permanently protected from database cleanup
+
 ⚠️ **Known Issue**: Some RSS feeds may not provide images in supported formats, fallback SVG placeholder continues to be used when no images are available.
 
 ## System Architecture

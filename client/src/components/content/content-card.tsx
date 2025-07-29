@@ -159,20 +159,9 @@ export function ContentCard({ drop }: ContentCardProps) {
           </div>
         </div>
 
-        {/* Article Image */}
-        <div className="mb-4 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-          <img
-            src={drop.content.imageUrl || drop.content.thumbnailUrl || "/fallback-article.svg"}
-            alt={drop.content.title}
-            className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              e.currentTarget.src = "/fallback-article.svg";
-            }}
-          />
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
+        {/* Content Layout with Image on Right */}
+        <div className="flex gap-4">
+          <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-900 mb-2 hover:text-primary transition-colors">
               {drop.content.title}
             </h2>
@@ -187,10 +176,10 @@ export function ContentCard({ drop }: ContentCardProps) {
                     {formatDuration(drop.content.duration)}
                   </span>
                 )}
-                {drop.content.viewCount && (
+                {drop.content.viewCount > 0 && (
                   <span className="flex items-center">
                     <Eye className="mr-1 h-4 w-4" />
-                    {drop.content.viewCount.toLocaleString()} views
+                    {drop.content.viewCount.toLocaleString()}
                   </span>
                 )}
                 {drop.content.contentType && (
@@ -229,6 +218,18 @@ export function ContentCard({ drop }: ContentCardProps) {
                 </Button>
               </div>
             </div>
+          </div>
+          
+          {/* Square Image on Right */}
+          <div className="w-32 h-32 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+            <img
+              src={drop.content.imageUrl || drop.content.thumbnailUrl || "/fallback-article.svg"}
+              alt={drop.content.title}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                e.currentTarget.src = "/fallback-article.svg";
+              }}
+            />
           </div>
         </div>
       </div>

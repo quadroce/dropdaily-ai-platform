@@ -41,11 +41,16 @@ export class ContentCleanupService {
 
       console.log(`🧹 Starting cleanup of content older than ${cutoffDate.toISOString()}`);
 
-      // Prima conta i contenuti da eliminare
+      // Prima conta i contenuti da eliminare (escludendo quelli salvati)
       const oldContentQuery = db
         .select({ id: content.id })
         .from(content)
-        .where(lt(content.createdAt, cutoffDate));
+        .where(
+          and(
+            lt(content.createdAt, cutoffDate),
+            eq(content.isSaved, false) // Protegge gli articoli salvati
+          )
+        );
 
       if (this.config.keepBookmarkedContent) {
         // TODO: Aggiungere LEFT JOIN con tabella bookmarks quando implementata
@@ -65,7 +70,7 @@ export class ContentCleanupService {
           // Prima elimina le classificazioni associate
           await db
             .delete(contentTopics)
-            .where(inArray(contentTopics.content_id, batchIds));
+            .where(inArray(contentTopics.contentId, batchIds));
 
           // Poi elimina i contenuti
           await db

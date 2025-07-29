@@ -72,6 +72,7 @@ export const content = pgTable("content", {
   publishedAt: timestamp("published_at"), // Original publication date
   guid: text("guid"), // RSS GUID for deduplication
   metadata: jsonb("metadata"), // Additional data like author, publish date, etc.
+  isSaved: boolean("is_saved").notNull().default(false), // Protect from cleanup when saved
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
