@@ -11,6 +11,8 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import RSSAdmin from "@/pages/rss-admin";
 import SocialAdmin from "@/pages/social-admin";
 import DatabaseAdmin from "@/pages/database-admin";
+import Profile from "@/pages/profile";
+import Settings from "@/pages/settings";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
@@ -55,6 +57,8 @@ function AuthenticatedApp() {
         <Route path="/" component={DailyDrop} />
         <Route path="/daily-drop" component={DailyDrop} />
         <Route path="/submit" component={SubmitContent} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/settings" component={Settings} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/social-admin" component={SocialAdmin} />
