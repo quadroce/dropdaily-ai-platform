@@ -176,7 +176,6 @@ export function ContentCard({ drop }: ContentCardProps) {
                     {formatDuration(drop.content.duration)}
                   </span>
                 )}
-
               </div>
               <div className="flex items-center space-x-2">
                 <Button
