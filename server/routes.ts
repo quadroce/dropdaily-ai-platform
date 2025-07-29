@@ -267,6 +267,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Social Media Ingestion Routes
+  app.post("/api/admin/ingest/social-media", async (req, res) => {
+    try {
+      const { socialMediaIngestionService } = await import("./services/social-media-ingestion");
+      const results = await socialMediaIngestionService.runSocialMediaIngestion();
+      
+      res.json({ 
+        success: true,
+        message: `Social media ingestion completed: ${results.total} new items`,
+        results
+      });
+    } catch (error) {
+      console.error("Social media ingestion failed:", error);
+      res.status(500).json({ 
+        error: "Social media ingestion failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/admin/ingest/twitter", async (req, res) => {
+    try {
+      const { socialMediaIngestionService } = await import("./services/social-media-ingestion");
+      const posts = await socialMediaIngestionService.ingestTwitterContent();
+      const processed = await socialMediaIngestionService.processSocialMediaContent(posts);
+      
+      res.json({ 
+        success: true,
+        message: `Twitter ingestion completed: ${processed} new posts`,
+        processed
+      });
+    } catch (error) {
+      console.error("Twitter ingestion failed:", error);
+      res.status(500).json({ 
+        error: "Twitter ingestion failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/admin/ingest/reddit", async (req, res) => {
+    try {
+      const { socialMediaIngestionService } = await import("./services/social-media-ingestion");
+      const posts = await socialMediaIngestionService.ingestRedditContent();
+      const processed = await socialMediaIngestionService.processSocialMediaContent(posts);
+      
+      res.json({ 
+        success: true,
+        message: `Reddit ingestion completed: ${processed} new posts`,
+        processed
+      });
+    } catch (error) {
+      console.error("Reddit ingestion failed:", error);
+      res.status(500).json({ 
+        error: "Reddit ingestion failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   app.post("/api/admin/generate-drops/:userId", async (req, res) => {
     try {
       const { userId } = req.params;

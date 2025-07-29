@@ -23,7 +23,8 @@ export function Navigation() {
     { label: "Submit Content", path: "/submit", icon: "fas fa-plus" },
     ...(user?.role === "admin" ? [
       { label: "Admin", path: "/admin", icon: "fas fa-shield-alt" },
-      { label: "RSS Admin", path: "/rss-admin", icon: "fas fa-rss" }
+      { label: "RSS Admin", path: "/rss-admin", icon: "fas fa-rss" },
+      { label: "Social Media", path: "/social-admin", icon: "fas fa-hashtag" }
     ] : []),
   ];
 

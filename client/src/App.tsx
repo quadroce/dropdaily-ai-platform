@@ -9,6 +9,7 @@ import DailyDrop from "@/pages/daily-drop";
 import SubmitContent from "@/pages/submit-content";
 import AdminDashboard from "@/pages/admin-dashboard";
 import RSSAdmin from "@/pages/rss-admin";
+import SocialAdmin from "@/pages/social-admin";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
@@ -55,6 +56,7 @@ function AuthenticatedApp() {
         <Route path="/submit" component={SubmitContent} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
+        <Route path="/social-admin" component={SocialAdmin} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/login">
           {() => {
