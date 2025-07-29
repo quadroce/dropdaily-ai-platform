@@ -17,6 +17,17 @@ export interface ContentSource {
 export async function initializeTopics(): Promise<void> {
   console.log("Initializing default topics...");
   
+  try {
+    // Test database connection first
+    await storage.getAllTopics();
+  } catch (error) {
+    console.error("Database connection failed during topic initialization:", error);
+    if (error instanceof Error && (error.message.includes('does not exist') || error.message.includes('42P01'))) {
+      throw new Error("Database table 'topics' does not exist. Please run database migrations.");
+    }
+    throw error;
+  }
+  
   const defaultTopics = [
     { name: "AI/ML", description: "Artificial Intelligence and Machine Learning technologies, frameworks, and applications" },
     { name: "Product", description: "Product management, strategy, development lifecycle, and user experience" },
@@ -32,22 +43,29 @@ export async function initializeTopics(): Promise<void> {
     { name: "Leadership", description: "Management skills, team leadership, organizational culture, and professional development" }
   ];
 
-  const existingTopics = await storage.getAllTopics();
-  
-  for (const topicData of defaultTopics) {
-    const exists = existingTopics.find(t => t.name === topicData.name);
-    if (!exists) {
-      try {
-        // Create topic without embedding initially to avoid OpenAI quota issues
-        await storage.createTopic({
-          ...topicData,
-          embedding: null
-        });
-        console.log(`Created topic: ${topicData.name}`);
-      } catch (error) {
-        console.error(`Failed to create topic ${topicData.name}:`, error);
+  try {
+    const existingTopics = await storage.getAllTopics();
+    
+    for (const topicData of defaultTopics) {
+      const exists = existingTopics.find(t => t.name === topicData.name);
+      if (!exists) {
+        try {
+          // Create topic without embedding initially to avoid OpenAI quota issues
+          await storage.createTopic({
+            ...topicData,
+            embedding: null
+          });
+          console.log(`Created topic: ${topicData.name}`);
+        } catch (error) {
+          console.error(`Failed to create topic ${topicData.name}:`, error);
+          // Continue with other topics even if one fails
+        }
       }
     }
+    console.log("✅ Topic initialization completed successfully");
+  } catch (error) {
+    console.error("❌ Failed to initialize topics:", error);
+    throw error;
   }
 }
 

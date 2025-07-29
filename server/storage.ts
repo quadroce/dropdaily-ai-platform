@@ -17,7 +17,11 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required");
 }
 
-const client = postgres(process.env.DATABASE_URL!);
+const client = postgres(process.env.DATABASE_URL!, {
+  onnotice: () => {}, // Suppress notices for cleaner logs
+  connect_timeout: 60, // 60 second timeout for connection
+  idle_timeout: 60,
+});
 const db = drizzle(client);
 
 export interface IStorage {
@@ -353,6 +357,8 @@ export class DatabaseStorage implements IStorage {
         matchScore: dailyDrops.matchScore,
         wasViewed: dailyDrops.wasViewed,
         wasBookmarked: dailyDrops.wasBookmarked,
+        sentAt: dailyDrops.sentAt,
+        emailSent: dailyDrops.emailSent,
         createdAt: dailyDrops.createdAt,
         content: content
       })
@@ -373,6 +379,8 @@ export class DatabaseStorage implements IStorage {
           matchScore: dailyDrops.matchScore,
           wasViewed: dailyDrops.wasViewed,
           wasBookmarked: dailyDrops.wasBookmarked,
+          sentAt: dailyDrops.sentAt,
+          emailSent: dailyDrops.emailSent,
           createdAt: dailyDrops.createdAt,
           content: content
         })
