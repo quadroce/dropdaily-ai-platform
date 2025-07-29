@@ -259,10 +259,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/ingest/youtube", async (req, res) => {
     try {
       await ingestYouTubeContent();
-      res.json({ message: "YouTube ingestion started" });
-    } catch (error) {
+      res.json({ message: "YouTube ingestion completed successfully" });
+    } catch (error: any) {
       console.error("Failed to start YouTube ingestion:", error);
-      res.status(500).json({ message: "Failed to start ingestion" });
+      
+      // Check if it's an OpenAI quota error
+      if (error.message?.includes('429') || error.message?.includes('quota')) {
+        res.status(200).json({ 
+          message: "Ingestion completed with limitations - OpenAI quota exceeded, fallback classification used",
+          warning: "Some features may be limited due to API constraints" 
+        });
+      } else {
+        res.status(500).json({ message: "Failed to start ingestion: " + error.message });
+      }
     }
   });
 

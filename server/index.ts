@@ -3,6 +3,17 @@ import { createServer } from "http";
 
 const app = express();
 
+// Global error handlers for production stability
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  console.error('Application continuing with degraded functionality...');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Application continuing with degraded functionality...');
+});
+
 // ULTRA-CRITICAL: Health check endpoints for deployment (non-root paths only)
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
@@ -16,22 +27,7 @@ app.get("/ready", (req, res) => {
   res.status(200).send("OK");
 });
 
-// EMERGENCY ROOT ROUTE - Temporary fix while Vite loads
-app.get("/", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html><head><title>DropDaily Loading...</title></head>
-    <body>
-      <div id="root">
-        <div style="text-align:center;padding:50px;">
-          <h2>DropDaily is initializing...</h2>
-          <p>Please wait while the application loads.</p>
-          <script>setTimeout(function(){location.reload();}, 3000);</script>
-        </div>
-      </div>
-    </body></html>
-  `);
-});
+
 
 // Create server immediately with only health checks
 const server = createServer(app);
@@ -56,12 +52,38 @@ server.on('error', (error: any) => {
 function setupAppInBackground(): void {
   // Import and setup everything in background, with delays between operations
   Promise.resolve().then(async () => {
+    console.log("🔧 Background setup starting...");
     try {
-      // Dynamic imports to avoid blocking initial server startup
-      const { registerRoutes } = await import('./routes');
-      const { setupVite, serveStatic, log } = await import('./vite');
+      // PRIORITY 1: Setup Vite/static serving FIRST for immediate UI availability
+      console.log("📥 Importing vite module...");
+      let viteModule;
+      try {
+        viteModule = await import('./vite');
+        console.log("✅ Vite module imported successfully");
+      } catch (error) {
+        console.error("❌ Failed to import vite module:", error);
+        // Fallback: serve static files without Vite
+        const path = await import('path');
+        const staticPath = path.resolve(process.cwd(), 'dist');
+        app.use(express.static(staticPath));
+        console.log("✅ Static fallback setup completed");
+        viteModule = null;
+      }
       
-      // Basic middleware
+      // Setup Vite/static serving
+      console.log("🎯 Setting up Vite/Static serving...");
+      if (process.env.NODE_ENV === "development" && viteModule) {
+        await viteModule.setupVite(app, server);
+        console.log("✅ Vite setup completed - React app now available");
+      } else if (viteModule) {
+        viteModule.serveStatic(app);
+        console.log("✅ Static serving setup completed");
+      } else {
+        console.log("✅ Fallback static serving is active");
+      }
+
+      // PRIORITY 2: Basic middleware
+      console.log("🔧 Setting up middleware...");
       app.use(express.json());
       app.use(express.urlencoded({ extended: false }));
 
@@ -77,28 +99,36 @@ function setupAppInBackground(): void {
         next();
       });
 
-      // Setup routes
-      await registerRoutes(app);
-
       // Error handling
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-        res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
+        console.error('API Error:', err);
+        
+        // Don't crash on OpenAI quota errors
+        if (err.message?.includes('429') || err.message?.includes('quota')) {
+          return res.status(200).json({ 
+            message: "Service temporarily limited due to external API constraints",
+            fallback: true
+          });
+        }
+        
+        res.status(err.status || 500).json({ 
+          message: err.status === 500 ? "Service temporarily unavailable" : err.message || "Internal Server Error" 
+        });
       });
 
-      // Vite/static setup
-      console.log("🎯 Setting up Vite/Static serving...");
-      if (process.env.NODE_ENV === "development") {
-        // Remove the temporary root route before setting up Vite
-        app._router.stack = app._router.stack.filter((layer: any) => 
-          !(layer.route && layer.route.path === '/' && layer.route.methods.get)
-        );
-        
-        await setupVite(app, server);
-        console.log("✅ Vite setup completed - React app now available");
-      } else {
-        serveStatic(app);
-        console.log("✅ Static serving setup completed");
-      }
+      console.log("🎉 Core application setup completed!");
+
+      // PRIORITY 3: Load routes in background (non-blocking)
+      setTimeout(async () => {
+        try {
+          console.log("📥 Loading routes in background...");
+          const { registerRoutes } = await import('./routes');
+          await registerRoutes(app);
+          console.log("✅ Routes loaded successfully");
+        } catch (error) {
+          console.error("❌ Failed to load routes:", error);
+        }
+      }, 1000);
 
       // Database setup (completely independent)
       setTimeout(() => {

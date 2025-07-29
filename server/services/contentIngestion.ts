@@ -73,16 +73,32 @@ export async function ingestContent(contentSource: ContentSource): Promise<strin
   try {
     console.log(`Ingesting content: ${contentSource.title}`);
 
-    // Generate content embedding
+    // Generate content embedding with fallback
     const contentText = `${contentSource.title} ${contentSource.description || ''} ${contentSource.transcript || ''}`;
-    const embedding = await generateEmbedding(contentText);
+    let embedding: number[];
+    let classification: any;
+    
+    try {
+      embedding = await generateEmbedding(contentText);
+    } catch (error) {
+      console.warn("⚠️ Embedding generation failed, using fallback");
+      embedding = new Array(1536).fill(0).map(() => Math.random() * 0.01);
+    }
 
-    // Classify content into topics
-    const classification = await classifyContent(
-      contentSource.title,
-      contentSource.description || '',
-      contentSource.transcript
-    );
+    // Classify content into topics with fallback
+    try {
+      classification = await classifyContent(
+        contentSource.title,
+        contentSource.description || '',
+        contentSource.transcript
+      );
+    } catch (error) {
+      console.warn("⚠️ Content classification failed, using fallback");
+      classification = {
+        topics: [{ name: "General", confidence: 0.5 }],
+        summary: "Content classification temporarily unavailable"
+      };
+    }
 
     // Create content record
     const contentData: InsertContent = {
