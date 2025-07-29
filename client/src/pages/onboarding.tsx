@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { SimpleAuthForm } from "@/components/auth/simple-auth-form";
 import { TopicSelector } from "@/components/onboarding/topic-selector";
 import type { Topic } from "@shared/schema";

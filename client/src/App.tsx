@@ -24,14 +24,27 @@ function AuthenticatedApp() {
     );
   }
 
+  // If user is not logged in, show routing for auth pages
   if (!user) {
-    return <LandingPage />;
+    return (
+      <Switch>
+        <Route path="/login" component={Onboarding} />
+        <Route path="/register" component={Onboarding} />
+        <Route path="/auth/login" component={Onboarding} />
+        <Route path="/auth/register" component={Onboarding} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/" component={LandingPage} />
+        <Route component={LandingPage} />
+      </Switch>
+    );
   }
 
+  // If user is not onboarded, show onboarding
   if (!user.isOnboarded) {
     return <Onboarding />;
   }
 
+  // Authenticated user with full app access
   return (
     <div className="min-h-screen bg-slate-50">
       <Navigation />
@@ -42,10 +55,6 @@ function AuthenticatedApp() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/onboarding" component={Onboarding} />
-        <Route path="/login" component={Onboarding} />
-        <Route path="/register" component={Onboarding} />
-        <Route path="/auth/login" component={Onboarding} />
-        <Route path="/auth/register" component={Onboarding} />
         <Route component={NotFound} />
       </Switch>
     </div>
