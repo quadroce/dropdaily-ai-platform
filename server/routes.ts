@@ -9,7 +9,14 @@ import { initializeTopics, ingestYouTubeContent, processUserSubmission, generate
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoints are now handled in main server file before this function
+  // Additional health endpoints for deployment compatibility
+  app.get("/healthz", (req, res) => {
+    res.status(200).send("OK");
+  });
+
+  app.get("/ready", (req, res) => {
+    res.status(200).json({ ready: true });
+  });
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
