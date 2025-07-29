@@ -42,6 +42,8 @@ function AuthenticatedApp() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/login" component={Onboarding} />
+        <Route path="/register" component={Onboarding} />
         <Route path="/auth/login" component={Onboarding} />
         <Route path="/auth/register" component={Onboarding} />
         <Route component={NotFound} />

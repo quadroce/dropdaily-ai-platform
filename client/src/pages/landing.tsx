@@ -18,12 +18,12 @@ export default function LandingPage() {
               <span className="text-xl font-bold text-gray-900 dark:text-white">DropDaily</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Link href="/auth/login">
+              <Link href="/login">
                 <Button variant="ghost" className="text-gray-600 dark:text-gray-300">
                   Login
                 </Button>
               </Link>
-              <Link href="/auth/register">
+              <Link href="/register">
                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                   Get Started Free
                 </Button>
@@ -52,7 +52,7 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Link href="/auth/register">
+            <Link href="/register">
               <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-3 text-lg">
                 <Brain className="w-5 h-5 mr-2" />
                 Get Started Now - Free
@@ -178,7 +178,7 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link href="/auth/register">
+            <Link href="/register">
               <Button size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 text-lg">
                 <TrendingUp className="w-5 h-5 mr-2" />
                 Start Today - Free
