@@ -81,13 +81,59 @@ export function TopicSelector({
     return colors[topicName] || "text-gray-500";
   };
 
-  // Group topics into categories
-  const professionalTopics = topics.filter(t => 
-    ["AI/ML", "Product", "Design", "Engineering", "Business", "Marketing"].includes(t.name)
+  // Organize topics by categories based on their names
+  const productDesignTopics = topics.filter(t => 
+    t.name.includes('Product') || t.name.includes('UX/UI') || t.name.includes('Design') || 
+    t.name.includes('User Research') || t.name.includes('Prototyping') || t.name.includes('Interaction')
   );
-  
-  const specializationTopics = topics.filter(t => 
-    ["Mobile Dev", "DevOps", "Security", "Data Science", "Startups", "Leadership"].includes(t.name)
+
+  const startupsBusinessTopics = topics.filter(t => 
+    t.name.includes('Startup') || t.name.includes('Business') || t.name.includes('Entrepreneur') || 
+    t.name.includes('Venture') || t.name.includes('Lean') || t.name.includes('Growth') || t.name.includes('Founder')
+  );
+
+  const aiMlTopics = topics.filter(t => 
+    t.name.includes('AI') || t.name.includes('ML') || t.name.includes('Machine Learning') || 
+    t.name.includes('Data Science') || t.name.includes('Prompt') || t.name.includes('NLP') || 
+    t.name.includes('Generative') || t.name.includes('Computer Vision') || t.name.includes('LLM') || t.name.includes('Transformer')
+  );
+
+  const engineeringTopics = topics.filter(t => 
+    t.name.includes('Engineering') || t.name.includes('DevOps') || t.name.includes('Cloud') || 
+    t.name.includes('SRE') || t.name.includes('CI/CD') || t.name.includes('Kubernetes') || 
+    t.name.includes('Backend') || t.name.includes('Frontend') || t.name.includes('API')
+  );
+
+  const webDevTopics = topics.filter(t => 
+    t.name.includes('Web') || t.name.includes('Mobile') || t.name.includes('React') || 
+    t.name.includes('TypeScript') || t.name.includes('JavaScript') || t.name.includes('Next.js') || 
+    t.name.includes('Flutter') || t.name.includes('iOS') || t.name.includes('Android')
+  );
+
+  const techInnovationTopics = topics.filter(t => 
+    t.name.includes('Emerging') || t.name.includes('Quantum') || t.name.includes('Edge') || 
+    t.name.includes('AR/VR') || t.name.includes('Robotics') || t.name.includes('Wearables')
+  );
+
+  const productivityTopics = topics.filter(t => 
+    t.name.includes('Productivity') || t.name.includes('Remote') || t.name.includes('Team') || 
+    t.name.includes('Knowledge') || t.name.includes('Time') || t.name.includes('Digital Minimalism')
+  );
+
+  const careerTopics = topics.filter(t => 
+    t.name.includes('Career') || t.name.includes('Interview') || t.name.includes('Hiring') || 
+    t.name.includes('Freelancing') || t.name.includes('Portfolio') || t.name.includes('Speaking')
+  );
+
+  const cultureFinanceTopics = topics.filter(t => 
+    t.name.includes('Tech News') || t.name.includes('Internet') || t.name.includes('Meme') || 
+    t.name.includes('Ethical') || t.name.includes('Digital Wellness') || t.name.includes('Fintech') || 
+    t.name.includes('Crypto') || t.name.includes('Finance') || t.name.includes('Investing') || t.name.includes('Market')
+  );
+
+  // Legacy topics for backwards compatibility
+  const legacyTopics = topics.filter(t => 
+    ["AI/ML", "Product", "Design", "Engineering", "Business", "Marketing", "Mobile Dev", "DevOps", "Security", "Data Science", "Startups", "Leadership"].includes(t.name)
   );
 
   return (
@@ -101,57 +147,190 @@ export function TopicSelector({
       </div>
 
       <div className="space-y-6">
-        {/* Professional Development Topics */}
-        <div>
-          <h4 className="text-lg font-semibold text-gray-900 mb-4">Professional Development</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {professionalTopics.map((topic) => (
-              <button
-                key={topic.id}
-                onClick={() => toggleTopic(topic.id)}
-                className={`topic-card ${
-                  selectedTopics.includes(topic.id) ? 'selected' : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <span className={getTopicColor(topic.name)}>
-                    {getTopicIcon(topic.name)}
-                  </span>
-                  <span className="font-medium text-gray-900">{topic.name}</span>
-                </div>
-                {selectedTopics.includes(topic.id) && (
-                  <i className="fas fa-check text-primary absolute top-2 right-2 text-sm"></i>
-                )}
-              </button>
-            ))}
+        {/* Product & Design */}
+        {productDesignTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🎨 Product & Design</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {productDesignTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Specializations */}
-        <div>
-          <h4 className="text-lg font-semibold text-gray-900 mb-4">Industries & Specializations</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {specializationTopics.map((topic) => (
-              <button
-                key={topic.id}
-                onClick={() => toggleTopic(topic.id)}
-                className={`topic-card ${
-                  selectedTopics.includes(topic.id) ? 'selected' : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <span className={getTopicColor(topic.name)}>
-                    {getTopicIcon(topic.name)}
-                  </span>
-                  <span className="font-medium text-gray-900">{topic.name}</span>
-                </div>
-                {selectedTopics.includes(topic.id) && (
-                  <i className="fas fa-check text-primary absolute top-2 right-2 text-sm"></i>
-                )}
-              </button>
-            ))}
+        {/* Startups & Business */}
+        {startupsBusinessTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🚀 Startups & Business</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {startupsBusinessTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* AI/ML/Data */}
+        {aiMlTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🤖 AI / ML / Data</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {aiMlTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Engineering & DevOps */}
+        {engineeringTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🛠️ Engineering & DevOps</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {engineeringTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Web & App Development */}
+        {webDevTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">💻 Web & App Development</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {webDevTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Technology & Innovation */}
+        {techInnovationTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🧩 Technology & Innovation</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {techInnovationTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Productivity & Work */}
+        {productivityTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">📈 Productivity & Work</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {productivityTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Career & Growth */}
+        {careerTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">🧠 Career & Growth</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {careerTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Culture & Finance */}
+        {cultureFinanceTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">💬 Culture & Finance</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {cultureFinanceTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <span className="font-medium text-gray-900 text-sm">{topic.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Legacy Basic Topics */}
+        {legacyTopics.length > 0 && (
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Professional Development</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {legacyTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`topic-card ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className={getTopicColor(topic.name)}>
+                      {getTopicIcon(topic.name)}
+                    </span>
+                    <span className="font-medium text-gray-900">{topic.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Smart Recommendations Info */}
         <Card className="bg-blue-50 border-blue-200">
