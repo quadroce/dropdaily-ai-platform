@@ -276,6 +276,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RSS Ingestion routes
+  app.post("/api/admin/rss/ingest", async (req, res) => {
+    try {
+      const { ingestionService } = await import("./services/ingestion");
+      await ingestionService.runDailyIngestion();
+      res.json({ success: true, message: "RSS ingestion completed successfully" });
+    } catch (error) {
+      console.error("RSS ingestion failed:", error);
+      res.status(500).json({ 
+        error: "RSS ingestion failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/admin/rss/daily-drops", async (req, res) => {
+    try {
+      const { dailyDropService } = await import("./services/daily-drop");
+      await dailyDropService.generateAndSendDailyDrops();
+      res.json({ success: true, message: "Daily drops generated and sent successfully" });
+    } catch (error) {
+      console.error("Daily drops generation failed:", error);
+      res.status(500).json({ 
+        error: "Daily drops generation failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.get("/api/admin/rss/stats", async (req, res) => {
+    try {
+      const { ingestionService } = await import("./services/ingestion");
+      const stats = await ingestionService.getIngestionStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get RSS ingestion stats:", error);
+      res.status(500).json({ error: "Failed to get statistics" });
+    }
+  });
+
+  app.get("/api/admin/rss/feeds", async (req, res) => {
+    try {
+      const { feedsLoader } = await import("./lib/feeds-loader");
+      const feeds = feedsLoader.getFeeds();
+      res.json(feeds);
+    } catch (error) {
+      console.error("Failed to get feeds:", error);
+      res.status(500).json({ error: "Failed to get feeds configuration" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

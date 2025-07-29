@@ -38,20 +38,38 @@ export const userPreferences = pgTable("user_preferences", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// RSS Feeds table
+export const feeds = pgTable("feeds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  url: text("url").notNull().unique(),
+  tags: text("tags").array(), // Array of tags
+  isActive: boolean("is_active").notNull().default(true),
+  lastFetched: timestamp("last_fetched"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 // Content table - all ingested content
 export const content = pgTable("content", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  feedId: varchar("feed_id").references(() => feeds.id, { onDelete: 'set null' }),
   title: text("title").notNull(),
   description: text("description"),
   url: text("url").notNull().unique(),
-  source: text("source").notNull(), // 'youtube', 'blog', 'article', etc.
+  source: text("source").notNull(), // 'rss', 'youtube', 'blog', 'article', etc.
   contentType: text("content_type").notNull(), // 'video', 'article', 'podcast'
   duration: integer("duration"), // in minutes for videos/podcasts
   thumbnailUrl: text("thumbnail_url"),
   transcript: text("transcript"),
+  summary: text("summary"), // AI-generated summary
+  fullContent: text("full_content"), // Full article content if available
   embedding: text("embedding"), // JSON string of vector
   status: contentStatusEnum("status").notNull().default('approved'),
   viewCount: integer("view_count").notNull().default(0),
+  publishedAt: timestamp("published_at"), // Original publication date
+  guid: text("guid"), // RSS GUID for deduplication
   metadata: jsonb("metadata"), // Additional data like author, publish date, etc.
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -91,6 +109,8 @@ export const dailyDrops = pgTable("daily_drops", {
   matchScore: real("match_score").notNull(), // Similarity score
   wasViewed: boolean("was_viewed").notNull().default(false),
   wasBookmarked: boolean("was_bookmarked").notNull().default(false),
+  sentAt: timestamp("sent_at"), // When email was sent
+  emailSent: boolean("email_sent").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -131,10 +151,20 @@ export const insertUserSubmissionSchema = createInsertSchema(userSubmissions).om
   updatedAt: true,
 });
 
+export const insertFeedSchema = createInsertSchema(feeds).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertDailyDropSchema = createInsertSchema(dailyDrops).omit({
   id: true,
   createdAt: true,
 });
+
+// Type exports
+export type Feed = typeof feeds.$inferSelect;
+export type InsertFeed = z.infer<typeof insertFeedSchema>;
 
 // Types
 export type User = typeof users.$inferSelect;

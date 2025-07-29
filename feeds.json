@@ -1,0 +1,52 @@
+[
+  {
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com/feed/",
+    "tags": ["tech", "startup", "innovation"]
+  },
+  {
+    "name": "Medium AI",
+    "url": "https://medium.com/feed/tag/artificial-intelligence",
+    "tags": ["ai", "machine learning", "technology"]
+  },
+  {
+    "name": "Harvard Business Review",
+    "url": "https://feeds.hbr.org/harvardbusiness",
+    "tags": ["business", "management", "leadership"]
+  },
+  {
+    "name": "MIT Technology Review",
+    "url": "https://www.technologyreview.com/feed/",
+    "tags": ["tech", "innovation", "research"]
+  },
+  {
+    "name": "Fast Company",
+    "url": "https://www.fastcompany.com/latest/rss",
+    "tags": ["business", "innovation", "workplace"]
+  },
+  {
+    "name": "Wired",
+    "url": "https://www.wired.com/feed/rss",
+    "tags": ["tech", "science", "culture"]
+  },
+  {
+    "name": "The Verge",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "tags": ["tech", "gadgets", "science"]
+  },
+  {
+    "name": "McKinsey Insights",
+    "url": "https://www.mckinsey.com/featured-insights/rss",
+    "tags": ["business", "strategy", "consulting"]
+  },
+  {
+    "name": "Entrepreneur",
+    "url": "https://www.entrepreneur.com/latest.rss",
+    "tags": ["entrepreneurship", "startup", "business"]
+  },
+  {
+    "name": "Inc.com",
+    "url": "https://www.inc.com/rss.xml",
+    "tags": ["business", "startup", "leadership"]
+  }
+]

@@ -1,0 +1,184 @@
+You are building the ingestion backend for **DropDaily**, to ingest content from multiple external sources defined in a JSON of RSS feeds. Your task is to build a robust, scalable pipeline to fetch, process, classify, store and deliver a daily feed.
+
+---
+
+## 🎯 Feature Overview
+
+- A JSON config file (`feeds.json`) lists RSS sources, topics or keywords:
+  ```json
+  [
+    { "name": "TechCrunch", "url": "https://techcrunch.com/feed/", "tags": ["tech","startup"] },
+    { "name": "Medium", "url": "https://medium.com/feed/tag/ai", "tags": ["ai","machine learning"] }
+    // … more
+  ]
+Every day at 3:00 AM:
+
+Read feeds.json
+
+For each feed:
+
+Fetch RSS or Atom entries
+
+Deduplicate items by GUID or URL
+
+Extract metadata: title, link, date, summary or full content
+
+Optionally fetch full article content and perform summarization
+
+Compute OpenAI embedding
+
+Match embedding to topics in database via pgvector with a threshold
+
+Store new items in content table and link with content_topics
+
+At 7:00 AM, for each user:
+
+Compute vector similarity with user profile
+
+Select top 5 unseen items
+
+Save to daily_drops table
+
+Send via email (e.g., Resend or Supabase Edge Function + Mail)
+
+📦 Tables & Schema
+feeds: id, name, url, tags (text[])
+
+content: id, feed_id, url, title, text, summary, published_at, vector
+
+topics: id, name, description, embedding
+
+content_topics: content_id, topic_id, similarity
+
+daily_drops: user_id, content_id, sent_at
+
+Ensure pgvector is enabled and indexed. 
+LogRocket Blog
++3
+Supabase
++3
+GitHub
++3
+arXiv
++2
+GitHub
++2
+GitHub
++2
+GitHub
++1
+DeepWiki
++1
+DeepWiki
++1
+arXiv
++1
+airbyte.com
++1
+Integrate.io
++1
+Supabase
++1
+DEV Community
++1
+
+🛠️ Components to Build
+feeds.json loader module with validation and schema enforcement.
+
+RSS ingestion functions:
+
+Parse RSS/Atom feeds with feedparser
+
+Handle both batch ingestion with incremental deduplication
+
+Gracefully skip invalid or unreachable feeds
+
+Edge Function ingest-feeds.ts:
+
+Scheduled at 3:00 AM daily (cron or pg_cron trigger)
+
+Processes feeds.json, classifies and stores content
+
+AI classification module:
+
+Uses OpenAI embeddings on title + summary
+
+Matches against topic embeddings with pgvector
+
+Stores results if similarity > threshold
+
+Daily delivery function daily-drop.ts:
+
+Scheduled at 7:00 AM
+
+Selects top 5 unseen items for each user
+
+Saves in daily_drops and triggers email
+
+Email sender module using Resend, Postmark, or Supabase Mail via Edge Function
+
+✅ Best Practices to Follow
+Use batch scheduling for low-latency daily ingestion 
+shaped.ai
+GitHub
+DEV Community
+Supabase
++6
+Integrate.io
++6
+Robotics & Automation News
++6
+
+Implement duplicate detection before ingestion
+
+Enforce schema checks and validation for feeds.json to avoid ingestion errors 
+Robotics & Automation News
++4
+shaped.ai
++4
+chitika.com
++4
+
+Provide error handling, retry logic, and logging for feed failures
+
+Modularize by source (/sources/rss.ts, /classify, /email)
+
+🚀 Execution Plan (Replit Style)
+Present a high-level plan: modules, files, scheduling
+
+Generate code step by step:
+
+feeds.json schema and loader
+
+RSS-fetching & parsing module
+
+Edge Function ingest-feeds.ts
+
+Classification function calling OpenAI + vector matching
+
+daily-drop.ts function
+
+DB schemas (SQL migration)
+
+Email-sending integration
+
+Include tests for ingestion function and daily-drop workflow.
+
+Use a structured folder layout:
+
+pgsql
+Copia
+Modifica
+/functions/
+  ingest-feeds/
+  daily-drop/
+  classify/
+/lib/
+  feeds-loader.ts
+  rss-parser.ts
+  classifier.ts
+  email.ts
+Assume .env includes:
+SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, RESEND_API_KEY
+
+Please start with the architecture and plan. Then generate code stepwise, awaiting my confirmation at each major step.```

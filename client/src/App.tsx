@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import DailyDrop from "@/pages/daily-drop";
 import SubmitContent from "@/pages/submit-content";
 import AdminDashboard from "@/pages/admin-dashboard";
+import RSSAdmin from "@/pages/rss-admin";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 
@@ -38,6 +39,7 @@ function AuthenticatedApp() {
         <Route path="/daily-drop" component={DailyDrop} />
         <Route path="/submit" component={SubmitContent} />
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/onboarding" component={Onboarding} />
         <Route component={NotFound} />
       </Switch>
