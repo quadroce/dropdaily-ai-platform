@@ -155,12 +155,24 @@ export class IngestionService {
         // Store article
         const contentRecord = await this.storeArticle(article, feedId);
         
-        // Classify and store topics
-        const classification = await Classifier.classifyArticle(article, contentRecord.id, {
-          minSimilarity: 0.65,
-          maxClassifications: 5,
-          generateSummary: true,
-        });
+        // Use fallback classification temporarily
+        console.log(`🔄 Using fallback classification for: ${article.title}`);
+        const { classifyContentFallback, generateFallbackEmbedding } = await import('../lib/openai-disabled');
+        
+        const fallbackClassification = classifyContentFallback(article.title, article.description || '');
+        const embedding = generateFallbackEmbedding(article.title + ' ' + (article.description || ''));
+        
+        const classification = {
+          contentId: contentRecord.id,
+          embedding,
+          classifications: fallbackClassification.topics.map(topic => ({
+            topicId: 'temp-' + topic.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            topicName: topic.name,
+            confidence: topic.confidence,
+            similarity: topic.confidence
+          })),
+          summary: fallbackClassification.summary
+        };
 
         // Store classifications
         if (classification.classifications.length > 0) {

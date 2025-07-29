@@ -159,21 +159,13 @@ export class Classifier {
   }
 
   /**
-   * Generate OpenAI embedding for text (with fallback)
+   * Generate embedding for text (fallback only mode)
    */
   private static async generateEmbedding(text: string): Promise<number[]> {
-    try {
-      const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: text,
-      });
-
-      return response.data[0].embedding;
-    } catch (error) {
-      // If OpenAI fails due to quota, use deterministic fallback
-      console.log('🔄 Using fallback embedding generation due to OpenAI quota limit');
-      return this.generateFallbackEmbedding(text);
-    }
+    // Temporarily use fallback only to avoid OpenAI quota issues
+    console.log('🔄 Using fallback embedding generation (OpenAI disabled)');
+    const { generateFallbackEmbedding } = await import('./openai-disabled');
+    return generateFallbackEmbedding(text);
   }
 
   /**
