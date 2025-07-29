@@ -9,24 +9,7 @@ import { initializeTopics, ingestYouTubeContent, processUserSubmission, generate
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoints - must be first to avoid being caught by catch-all routes
-  app.get("/", (req, res) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      service: "DropDaily API",
-      version: "1.0.0"
-    });
-  });
-
-  app.get("/health", (req, res) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      service: "DropDaily API",
-      version: "1.0.0"
-    });
-  });
+  // Health check endpoints are now handled in main server file before this function
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {

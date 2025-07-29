@@ -4,10 +4,31 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabase, handleDatabaseError } from "./scripts/db-init";
 
 const app = express();
+
+// Add immediate health check endpoints BEFORE any middleware
+// These must respond immediately without dependencies
+app.get("/", (req, res) => {
+  res.status(200).json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    service: "DropDaily API",
+    version: "1.0.0",
+    uptime: process.uptime()
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    service: "DropDaily API",
+    version: "1.0.0",
+    uptime: process.uptime()
+  });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-// Health check endpoints will be added in routes.ts
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -108,14 +129,27 @@ app.use((req, res, next) => {
 async function initializeAppData(): Promise<void> {
   try {
     log('🗄️ Initializing database...');
-    await initializeDatabase();
+    
+    // Add timeout for database initialization to prevent hanging
+    const dbInitPromise = initializeDatabase();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database initialization timeout after 30 seconds')), 30000);
+    });
+    
+    await Promise.race([dbInitPromise, timeoutPromise]);
     log('✅ Database initialization completed');
     
-    // Initialize topics with error handling
+    // Initialize topics with error handling and timeout
     try {
       log('📚 Initializing topics...');
       const { initializeTopics } = await import('./services/contentIngestion');
-      await initializeTopics();
+      
+      const topicsInitPromise = initializeTopics();
+      const topicsTimeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Topics initialization timeout after 20 seconds')), 20000);
+      });
+      
+      await Promise.race([topicsInitPromise, topicsTimeoutPromise]);
       log('✅ Topic initialization completed');
     } catch (topicError) {
       console.error('⚠️ Topic initialization failed, but continuing:', topicError);
@@ -124,10 +158,14 @@ async function initializeAppData(): Promise<void> {
     
     // Setup automated content cleanup (only in production)
     if (process.env.NODE_ENV === 'production') {
-      log('🧹 Setting up cleanup cron...');
-      const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
-      setupCleanupCron();
-      log('✅ Cleanup cron setup completed');
+      try {
+        log('🧹 Setting up cleanup cron...');
+        const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
+        setupCleanupCron();
+        log('✅ Cleanup cron setup completed');
+      } catch (cronError) {
+        console.error('⚠️ Cleanup cron setup failed, but continuing:', cronError);
+      }
     }
 
   } catch (error) {
