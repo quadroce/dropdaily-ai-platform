@@ -20,12 +20,12 @@ export default function LandingPage() {
             <div className="flex items-center space-x-4">
               <Link href="/auth/login">
                 <Button variant="ghost" className="text-gray-600 dark:text-gray-300">
-                  Accedi
+                  Login
                 </Button>
               </Link>
               <Link href="/auth/register">
                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                  Inizia Gratis
+                  Get Started Free
                 </Button>
               </Link>
             </div>
@@ -38,42 +38,42 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <Badge variant="secondary" className="mb-6 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
             <Zap className="w-4 h-4 mr-2" />
-            Alimentato da AI
+            AI Powered
           </Badge>
           
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-            La tua dose quotidiana di
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> contenuti tech</span>
+            Your daily dose of
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> tech content</span>
           </h1>
           
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            DropDaily usa l'intelligenza artificiale per selezionare e consegnarti ogni giorno 1-3 contenuti perfettamente
-            allineati ai tuoi interessi professionali. Niente spam, solo quello che conta davvero.
+            DropDaily uses artificial intelligence to curate and deliver 1-3 pieces of content daily, 
+            perfectly aligned with your professional interests. No spam, only what truly matters.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
             <Link href="/auth/register">
               <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-3 text-lg">
                 <Brain className="w-5 h-5 mr-2" />
-                Inizia Subito - Gratis
+                Get Started Now - Free
               </Button>
             </Link>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Configurazione in 2 minuti</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Setup in 2 minutes</p>
           </div>
 
           {/* Quick Stats */}
           <div className="flex flex-wrap justify-center gap-8 text-center">
             <div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">333+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Articoli Classificati</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Articles Classified</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">25</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Fonti Premium</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Premium Sources</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">1-3</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Contenuti Giornalieri</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Daily Content</div>
             </div>
           </div>
         </div>
@@ -83,10 +83,10 @@ export default function LandingPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white/50 dark:bg-gray-800/50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-4">
-            Come funziona DropDaily
+            How DropDaily Works
           </h2>
           <p className="text-gray-600 dark:text-gray-300 text-center mb-12 max-w-2xl mx-auto">
-            Un processo semplice e potente per trasformare il sovraccarico informativo in apprendimento mirato
+            A simple yet powerful process to transform information overload into targeted learning
           </p>
           
           <div className="grid md:grid-cols-3 gap-8">
@@ -95,12 +95,12 @@ export default function LandingPage() {
                 <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
                   <Target className="w-6 h-6 text-white" />
                 </div>
-                <CardTitle className="text-gray-900 dark:text-white">Personalizzazione AI</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">AI Personalization</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-center text-gray-600 dark:text-gray-300">
-                  Scegli i tuoi topic di interesse da oltre 50 categorie tech. L'AI impara le tue preferenze
-                  e affina le raccomandazioni nel tempo.
+                  Choose your topics of interest from over 50 tech categories. AI learns your preferences
+                  and refines recommendations over time.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -110,12 +110,12 @@ export default function LandingPage() {
                 <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                   <Brain className="w-6 h-6 text-white" />
                 </div>
-                <CardTitle className="text-gray-900 dark:text-white">Curation Intelligente</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">Intelligent Curation</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-center text-gray-600 dark:text-gray-300">
-                  Analizziamo centinaia di articoli da fonti premium come TechCrunch, The Verge, Wired 
-                  per trovare solo i contenuti più rilevanti.
+                  We analyze hundreds of articles from premium sources like TechCrunch, The Verge, Wired 
+                  to find only the most relevant content.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -125,12 +125,12 @@ export default function LandingPage() {
                 <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-r from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
                   <Clock className="w-6 h-6 text-white" />
                 </div>
-                <CardTitle className="text-gray-900 dark:text-white">Consegna Quotidiana</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">Daily Delivery</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-center text-gray-600 dark:text-gray-300">
-                  Ricevi la tua dose quotidiana direttamente nella dashboard. Massimo 3 contenuti
-                  per non sovraccaricarti di informazioni.
+                  Get your daily dose directly in the dashboard. Maximum 3 pieces of content
+                  to avoid information overload.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -142,10 +142,10 @@ export default function LandingPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Oltre 50 Topic Tecnologici
+            Over 50 Tech Topics
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
-            Dai fondamenti dell'AI alle ultime tendenze startup, copriamo tutto l'ecosistema tech
+            From AI fundamentals to the latest startup trends, we cover the entire tech ecosystem
           </p>
           
           <div className="flex flex-wrap justify-center gap-3 mb-8">
@@ -161,7 +161,7 @@ export default function LandingPage() {
           </div>
           
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            ...e molti altri topic per ogni professionale tech
+            ...and many more topics for every tech professional
           </p>
         </div>
       </section>
@@ -170,23 +170,23 @@ export default function LandingPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Pronto a rivoluzionare il tuo apprendimento?
+            Ready to revolutionize your learning?
           </h2>
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-            Unisciti ai professionali tech che hanno già scelto DropDaily per rimanere aggiornati
-            senza perdere tempo prezioso.
+            Join tech professionals who have already chosen DropDaily to stay updated
+            without wasting precious time.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link href="/auth/register">
               <Button size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 text-lg">
                 <TrendingUp className="w-5 h-5 mr-2" />
-                Inizia Oggi - Gratis
+                Start Today - Free
               </Button>
             </Link>
             <div className="flex items-center text-blue-100 text-sm">
               <Users className="w-4 h-4 mr-2" />
-              Setup in 2 minuti • Nessuna carta richiesta
+              Setup in 2 minutes • No card required
             </div>
           </div>
         </div>

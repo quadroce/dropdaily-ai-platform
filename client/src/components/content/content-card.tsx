@@ -118,6 +118,18 @@ export function ContentCard({ drop }: ContentCardProps) {
           </div>
         </div>
 
+        {/* Article Image */}
+        <div className="mb-4 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+          <img
+            src={drop.content.imageUrl || drop.content.thumbnailUrl || "/fallback-article.svg"}
+            alt={drop.content.title}
+            className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              e.currentTarget.src = "/fallback-article.svg";
+            }}
+          />
+        </div>
+
         <div className="grid md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
             <h2 className="text-xl font-semibold text-gray-900 mb-2 hover:text-primary transition-colors">
@@ -176,15 +188,6 @@ export function ContentCard({ drop }: ContentCardProps) {
                 </Button>
               </div>
             </div>
-          </div>
-          <div className="md:col-span-1">
-            {drop.content.thumbnailUrl && (
-              <img
-                src={drop.content.thumbnailUrl}
-                alt={drop.content.title}
-                className="w-full h-40 object-cover rounded-lg"
-              />
-            )}
           </div>
         </div>
       </div>
