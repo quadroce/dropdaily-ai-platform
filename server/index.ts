@@ -111,11 +111,9 @@ app.use((req, res, next) => {
       log(`✅ Server is running on port ${port}`);
       log(`🌐 Health endpoints: /, /health, /healthz, /ready`);
       
-      // Delay database initialization to ensure health checks pass immediately
-      // Use setImmediate to start async operations after current event loop
-      setImmediate(() => {
-        initializeAppData();
-      });
+      // Start initialization in background without blocking or waiting
+      // This ensures health checks can pass immediately during deployment
+      initializeAppData();
     });
 
     // Handle server errors
@@ -141,63 +139,50 @@ app.use((req, res, next) => {
 })();
 
 // Initialize database and app data after server is running
-async function initializeAppData(): Promise<void> {
-  try {
-    log('🗄️ Initializing database...');
-    
-    // Add shorter timeout for database initialization to prevent hanging during deployment
-    const dbInitPromise = initializeDatabase();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database initialization timeout after 15 seconds')), 15000);
+// This function is truly non-blocking and fire-and-forget to prevent blocking health checks
+function initializeAppData(): void {
+  // Start all initialization operations independently without blocking the main thread
+  
+  // Database initialization (fire-and-forget)
+  initializeDatabase()
+    .then(() => {
+      log('✅ Database initialization completed');
+      
+      // Only start topics initialization after database is ready
+      import('./services/contentIngestion')
+        .then(({ initializeTopics }) => {
+          log('📚 Initializing topics...');
+          
+          initializeTopics()
+            .then(() => {
+              log('✅ Topic initialization completed');
+            })
+            .catch((topicError) => {
+              console.error('⚠️ Topic initialization failed, but continuing:', topicError);
+            });
+        })
+        .catch((importError) => {
+          console.error('⚠️ Failed to import content ingestion module:', importError);
+        });
+        
+    })
+    .catch((dbError) => {
+      console.error('💥 Database initialization failed:', dbError);
+      console.error('⚠️ Server remains operational for health checks');
     });
-    
-    await Promise.race([dbInitPromise, timeoutPromise]);
-    log('✅ Database initialization completed');
-    
-    // Initialize topics with error handling and shorter timeout for deployment
-    try {
-      log('📚 Initializing topics...');
-      const { initializeTopics } = await import('./services/contentIngestion');
-      
-      const topicsInitPromise = initializeTopics();
-      const topicsTimeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Topics initialization timeout after 10 seconds')), 10000);
-      });
-      
-      await Promise.race([topicsInitPromise, topicsTimeoutPromise]);
-      log('✅ Topic initialization completed');
-    } catch (topicError) {
-      console.error('⚠️ Topic initialization failed, but continuing:', topicError);
-      // Don't throw - continue with other initialization steps
-      // The application will still work with default topics
-    }
-    
-    // Setup automated content cleanup (only in production)
-    if (process.env.NODE_ENV === 'production') {
-      try {
+
+  // Setup cleanup cron independently (fire-and-forget)
+  if (process.env.NODE_ENV === 'production') {
+    import('./scripts/setup-cleanup-cron')
+      .then(({ setupCleanupCron }) => {
         log('🧹 Setting up cleanup cron...');
-        const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
         setupCleanupCron();
         log('✅ Cleanup cron setup completed');
-      } catch (cronError) {
+      })
+      .catch((cronError) => {
         console.error('⚠️ Cleanup cron setup failed, but continuing:', cronError);
-      }
-    }
-
-  } catch (error) {
-    console.error('💥 Post-startup initialization failed:', error);
-    // CRITICAL: Don't exit the process here - let the server continue running
-    // This allows the health check to pass even if some initialization fails
-    // The application core functionality will still work for deployment
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      if (error.message.includes('timeout')) {
-        console.error('⚠️  Initialization timed out - this is expected during deployment');
-        console.error('⚠️  The application will continue working normally');
-      }
-    }
-    
-    // Log that the server is still operational despite initialization issues
-    log('✅ Server remains operational despite initialization issues');
+      });
   }
+  
+  log('🚀 Background initialization started - server ready for health checks');
 }
