@@ -179,7 +179,7 @@ export function ContentCard({ drop }: ContentCardProps) {
                 {drop.content.viewCount && drop.content.viewCount > 0 && (
                   <span className="flex items-center">
                     <Eye className="mr-1 h-4 w-4" />
-                    {drop.content.viewCount.toLocaleString()} views
+                    {drop.content.viewCount.toLocaleString()}
                   </span>
                 )}
                 {drop.content.contentType && drop.content.contentType !== 'article' && (
