@@ -5,23 +5,8 @@ import { initializeDatabase, handleDatabaseError } from "./scripts/db-init";
 
 const app = express();
 
-// Critical: Immediate health check endpoints BEFORE any middleware
+// Critical: Health check endpoints for deployment
 // These must respond instantly to pass deployment health checks
-app.get("/", (req, res) => {
-  try {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      service: "DropDaily API",
-      version: "1.0.0",
-      uptime: process.uptime(),
-      env: process.env.NODE_ENV || "development"
-    });
-  } catch (error) {
-    res.status(200).json({ status: "healthy" });
-  }
-});
-
 app.get("/health", (req, res) => {
   try {
     res.status(200).json({ 
