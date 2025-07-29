@@ -387,7 +387,7 @@ export class DatabaseStorage implements IStorage {
         );
     }
 
-    const result = await query.orderBy(desc(dailyDrops.dropDate));
+    const result = await query.orderBy(desc(dailyDrops.matchScore), desc(dailyDrops.dropDate));
 
     // Add topics to each content item
     const dropsWithContentAndTopics = await Promise.all(
