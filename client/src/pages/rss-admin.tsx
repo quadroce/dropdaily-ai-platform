@@ -15,7 +15,8 @@ import {
   AlertCircle,
   RefreshCw,
   Mail,
-  Database
+  Database,
+  FileText
 } from "lucide-react";
 
 interface FeedConfig {
