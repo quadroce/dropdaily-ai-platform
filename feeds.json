@@ -123,5 +123,36 @@
     "name": "HuffPost Tech",
     "url": "https://www.huffpost.com/section/technology/feed",
     "tags": ["tech", "news", "culture"]
-  }
-]
+  },
+  
+
+    { "name": "ReadWrite", "url": "https://readwrite.com/feed/", "tags": ["tech", "IoT", "AI"] },
+    { "name": "ZDNet", "url": "https://www.zdnet.com/news/rss.xml", "tags": ["IT", "business", "tech"] },
+    { "name": "Digital Trends", "url": "https://www.digitaltrends.com/feed/", "tags": ["tech", "gadgets", "lifestyle"] },
+    { "name": "MakeUseOf", "url": "https://www.makeuseof.com/feed/", "tags": ["how-to", "tech", "apps"] },
+    { "name": "InfoWorld", "url": "https://www.infoworld.com/index.rss", "tags": ["IT", "development", "cloud"] },
+    { "name": "Slashdot", "url": "http://rss.slashdot.org/Slashdot/slashdot", "tags": ["tech", "IT", "open source"] },
+    { "name": "Benedict Evans", "url": "https://www.ben-evans.com/benedictevans?format=rss", "tags": ["tech", "strategy", "analysis"] },
+    { "name": "GigaOM", "url": "https://gigaom.com/feed/", "tags": ["tech", "cloud", "data"] },
+    { "name": "Android Authority", "url": "https://www.androidauthority.com/feed", "tags": ["android", "mobile", "gadgets"] },
+    { "name": "9to5Mac", "url": "https://9to5mac.com/feed/", "tags": ["apple", "mac", "iOS"] },
+    { "name": "9to5Google", "url": "https://9to5google.com/feed/", "tags": ["google", "android", "tech"] },
+    { "name": "Futurism", "url": "https://futurism.com/rss", "tags": ["future", "science", "technology"] },
+    { "name": "NextBigFuture", "url": "https://www.nextbigfuture.com/feed", "tags": ["future", "tech", "innovation"] },
+    { "name": "MIT News - Technology", "url": "http://news.mit.edu/rss/topic/technology", "tags": ["tech", "research", "MIT"] },
+    { "name": "XDA Developers", "url": "https://www.xda-developers.com/feed/", "tags": ["android", "development", "gadgets"] },
+    { "name": "Mozilla Hacks", "url": "https://hacks.mozilla.org/feed/", "tags": ["webdev", "browser", "javascript"] },
+    { "name": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/", "tags": ["engineering", "programming", "career"] },
+    { "name": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "tags": ["web design", "ux", "frontend"] },
+    { "name": "Coding Horror", "url": "https://blog.codinghorror.com/rss/", "tags": ["engineering", "software", "culture"] },
+    { "name": "Joel on Software", "url": "https://www.joelonsoftware.com/feed/", "tags": ["engineering", "product", "software"] },
+    { "name": "Stratechery", "url": "https://stratechery.com/feed/", "tags": ["strategy", "tech", "business"] },
+    { "name": "SaaStr", "url": "https://www.saastr.com/feed/", "tags": ["saas", "startups", "growth"] },
+    { "name": "Y Combinator Blog", "url": "https://www.ycombinator.com/blog/feed", "tags": ["startups", "founders", "funding"] },
+    { "name": "Tech.eu", "url": "https://tech.eu/feed", "tags": ["europe", "tech", "startups"] },
+    { "name": "Disruptive Asia", "url": "https://disruptive.asia/feed/", "tags": ["asia", "tech", "trends"] },
+    { "name": "Quartz", "url": "https://qz.com/feed", "tags": ["news", "business", "technology"] },
+    { "name": "Noahpinion", "url": "https://noahpinion.substack.com/feed", "tags": ["economics", "tech", "policy"] },
+    { "name": "AI Trends", "url": "https://www.aitrends.com/feed/", "tags": ["AI", "machine learning", "enterprise"] },
+    { "name": "AI Weekly", "url": "https://aiweekly.co/feed", "tags": ["AI", "deep learning", "news"] }
+  ]
