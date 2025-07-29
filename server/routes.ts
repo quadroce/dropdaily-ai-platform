@@ -9,32 +9,7 @@ import { initializeTopics, ingestYouTubeContent, processUserSubmission, generate
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Root health endpoint for deployment (only in production)
-  if (process.env.NODE_ENV === "production") {
-    app.get("/", (req, res) => {
-      try {
-        res.status(200).json({ 
-          status: "healthy", 
-          timestamp: new Date().toISOString(),
-          service: "DropDaily API",
-          version: "1.0.0",
-          uptime: process.uptime(),
-          env: "production"
-        });
-      } catch (error) {
-        res.status(200).json({ status: "healthy" });
-      }
-    });
-  }
-
-  // Additional health endpoints for deployment compatibility
-  app.get("/healthz", (req, res) => {
-    res.status(200).send("OK");
-  });
-
-  app.get("/ready", (req, res) => {
-    res.status(200).json({ ready: true });
-  });
+  // Health endpoints are now handled in index.ts for immediate response
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
