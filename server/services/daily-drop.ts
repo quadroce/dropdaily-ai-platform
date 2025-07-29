@@ -97,6 +97,7 @@ export class DailyDropService {
     try {
       // Get user preferences
       const userTopics = await this.getUserTopicPreferences(userId);
+      console.log(`📊 Found ${userTopics.length} topic preferences for user ${userId}`);
       
       if (userTopics.length === 0) {
         console.log(`⚠️ User ${userId} has no topic preferences`);
@@ -161,19 +162,24 @@ export class DailyDropService {
    * Get user's topic preferences with weights
    */
   private async getUserTopicPreferences(userId: string) {
-    return await db
-      .select({
-        topicId: userPreferences.topicId,
-        weight: userPreferences.weight,
-        topicName: topics.name,
-        topicEmbedding: topics.embedding,
-      })
-      .from(userPreferences)
-      .innerJoin(topics, eq(userPreferences.topicId, topics.id))
-      .where(and(
-        eq(userPreferences.userId, userId),
-        sql`${topics.embedding} IS NOT NULL`
-      ));
+    try {
+      const result = await db
+        .select({
+          topicId: userPreferences.topicId,
+          weight: userPreferences.weight,
+          topicName: topics.name,
+          topicEmbedding: topics.embedding,
+        })
+        .from(userPreferences)
+        .innerJoin(topics, eq(userPreferences.topicId, topics.id))
+        .where(eq(userPreferences.userId, userId));
+      
+      console.log(`🔍 getUserTopicPreferences for ${userId}: found ${result.length} preferences`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Error getting preferences for user ${userId}:`, error);
+      return [];
+    }
   }
 
   /**

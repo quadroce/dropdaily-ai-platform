@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { feeds, content, contentTopics, InsertFeed, InsertContent } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { topics } from "@shared/schema";
 import { feedsLoader } from "../lib/feeds-loader";
 import { RSSParser, type ParsedArticle, type FeedParseResult } from "../lib/rss-parser";
 import { Classifier } from "../lib/classifier";
@@ -155,28 +156,56 @@ export class IngestionService {
         // Store article
         const contentRecord = await this.storeArticle(article, feedId);
         
-        // Use fallback classification temporarily
-        console.log(`🔄 Using fallback classification for: ${article.title}`);
-        const { classifyContentFallback, generateFallbackEmbedding } = await import('../lib/openai-disabled');
-        
-        const fallbackClassification = classifyContentFallback(article.title, article.description || '');
-        const embedding = generateFallbackEmbedding(article.title + ' ' + (article.description || ''));
-        
-        const classification = {
-          contentId: contentRecord.id,
-          embedding,
-          classifications: fallbackClassification.topics.map(topic => ({
-            topicId: 'temp-' + topic.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-            topicName: topic.name,
-            confidence: topic.confidence,
-            similarity: topic.confidence
-          })),
-          summary: fallbackClassification.summary
-        };
+        // Classify and store topics with OpenAI
+        const classification = await Classifier.classifyArticle(article, contentRecord.id, {
+          minSimilarity: 0.65,
+          maxClassifications: 5,
+          generateSummary: true,
+        });
 
-        // Store classifications
+        // Store classifications - always try to store even if 0 classifications
+        console.log(`💾 Storing ${classification.classifications.length} classifications for: ${article.title}`);
         if (classification.classifications.length > 0) {
           await Classifier.storeClassifications([classification]);
+        } else {
+          console.log(`⚠️ No classifications found for: ${article.title} - will create fallback classifications`);
+          
+          // Create fallback topic classifications for better matching
+          const fallbackTopics = [];
+          const text = (article.title + ' ' + (article.description || '')).toLowerCase();
+          
+          if (text.includes('ai') || text.includes('artificial intelligence') || text.includes('machine learning')) {
+            fallbackTopics.push({ name: 'AI/ML', confidence: 0.8 });
+          }
+          if (text.includes('tech') || text.includes('engineering') || text.includes('developer') || text.includes('programming')) {
+            fallbackTopics.push({ name: 'Engineering', confidence: 0.7 });
+          }
+          if (text.includes('business') || text.includes('startup') || text.includes('company')) {
+            fallbackTopics.push({ name: 'Business', confidence: 0.6 });
+          }
+          
+          // Add at least one general topic if no specific match
+          if (fallbackTopics.length === 0) {
+            fallbackTopics.push({ name: 'Business', confidence: 0.5 });
+          }
+          
+          // Create topic IDs from our database topics
+          for (const topic of fallbackTopics) {
+            const dbTopic = await db.select().from(topics).where(eq(topics.name, topic.name)).limit(1);
+            if (dbTopic[0]) {
+              classification.classifications.push({
+                topicId: dbTopic[0].id,
+                topicName: topic.name,
+                confidence: topic.confidence,
+                similarity: topic.confidence
+              });
+            }
+          }
+          
+          if (classification.classifications.length > 0) {
+            await Classifier.storeClassifications([classification]);
+            console.log(`✅ Created fallback classifications for: ${article.title}`);
+          }
         }
 
         // Update content with embedding and summary
