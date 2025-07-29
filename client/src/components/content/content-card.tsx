@@ -176,17 +176,7 @@ export function ContentCard({ drop }: ContentCardProps) {
                     {formatDuration(drop.content.duration)}
                   </span>
                 )}
-                {drop.content.viewCount && drop.content.viewCount > 0 && (
-                  <span className="flex items-center">
-                    <Eye className="mr-1 h-4 w-4" />
-                    {drop.content.viewCount.toLocaleString()}
-                  </span>
-                )}
-                {drop.content.contentType && drop.content.contentType !== 'article' && (
-                  <Badge variant="outline" className="text-xs">
-                    {drop.content.contentType}
-                  </Badge>
-                )}
+
               </div>
               <div className="flex items-center space-x-2">
                 <Button
