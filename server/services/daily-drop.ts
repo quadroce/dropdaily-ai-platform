@@ -120,7 +120,7 @@ export class DailyDropService {
         return [];
       }
 
-      // Select top items with diversity
+      // Select top items with diversity (YouTube prioritized first)
       const selectedContent = this.selectDiverseContent(contentMatches, maxItems);
 
       // Create daily drop records
@@ -286,24 +286,34 @@ export class DailyDropService {
   }
 
   /**
-   * Select diverse content to avoid clustering around one topic
+   * Select diverse content with YouTube video prioritized as first card
    */
   private selectDiverseContent(
     matches: UserContentMatch[], 
     maxItems: number
   ): UserContentMatch[] {
     if (matches.length <= maxItems) {
-      return matches;
+      return this.prioritizeYouTubeFirst(matches);
     }
 
     const selected: UserContentMatch[] = [];
     const usedSources = new Set<string>();
 
-    // First pass: select top item from each unique source
+    // PRIORITY: Find best YouTube video for first position
+    const youtubeMatches = matches.filter(m => m.content.source === 'youtube');
+    if (youtubeMatches.length > 0) {
+      const bestYoutube = youtubeMatches[0]; // Already sorted by score
+      selected.push(bestYoutube);
+      usedSources.add('youtube');
+      console.log(`🎥 Selected YouTube video as first card: "${bestYoutube.content.title}"`);
+    }
+
+    // First pass: select top item from each unique source (excluding already used)
     for (const match of matches) {
       if (selected.length >= maxItems) break;
       
-      if (!usedSources.has(match.content.source)) {
+      if (!usedSources.has(match.content.source) && 
+          !selected.find(s => s.contentId === match.contentId)) {
         selected.push(match);
         usedSources.add(match.content.source);
       }
@@ -319,6 +329,21 @@ export class DailyDropService {
     }
 
     return selected.slice(0, maxItems);
+  }
+
+  /**
+   * Ensure YouTube content is prioritized first if available
+   */
+  private prioritizeYouTubeFirst(matches: UserContentMatch[]): UserContentMatch[] {
+    const youtubeMatches = matches.filter(m => m.content.source === 'youtube');
+    const otherMatches = matches.filter(m => m.content.source !== 'youtube');
+    
+    if (youtubeMatches.length > 0) {
+      console.log(`🎥 Prioritizing YouTube video: "${youtubeMatches[0].content.title}"`);
+      return [youtubeMatches[0], ...otherMatches].slice(0, matches.length);
+    }
+    
+    return matches;
   }
 
   /**

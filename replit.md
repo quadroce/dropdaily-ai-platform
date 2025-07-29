@@ -28,6 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Unified Ingestion Button**: Single "Complete Ingestion" button for RSS+Social Media at `/rss-admin`
 - **Content Card Redesign**: Square images positioned on right side, improved layout and removed "0 article" text
 - **Saved Article Protection**: Articles marked as saved are permanently protected from database cleanup
+- **YouTube First Priority**: Algorithm modified to always show YouTube video as first card in daily drops
 
 ⚠️ **Known Issue**: Some RSS feeds may not provide images in supported formats, fallback SVG placeholder continues to be used when no images are available.
 
