@@ -28,11 +28,15 @@ export default function Onboarding() {
     mutationFn: (topicIds: string[]) =>
       apiRequest("POST", `/api/users/${user?.id}/preferences`, { topicIds }),
     onSuccess: () => {
-      updateUser({ isOnboarded: true });
+      if (!user?.isOnboarded) {
+        updateUser({ isOnboarded: true });
+      }
       setStep('complete');
       toast({
-        title: "Welcome to DropDaily!",
-        description: "Your preferences have been saved. We're generating your first daily drop.",
+        title: user?.isOnboarded ? "Preferences Updated!" : "Welcome to DropDaily!",
+        description: user?.isOnboarded 
+          ? "Your content preferences have been updated successfully."
+          : "Your preferences have been saved. We're generating your first daily drop.",
       });
     },
     onError: (error) => {
@@ -69,14 +73,10 @@ export default function Onboarding() {
     }
   };
 
-  // If user is already authenticated and onboarded, don't show onboarding
-  if (user?.isOnboarded) {
-    return null;
-  }
-
   // If user is authenticated but not onboarded, skip to topics
+  // If user is already onboarded, show topics for editing preferences
   useEffect(() => {
-    if (user && !user.isOnboarded && step === 'auth') {
+    if (user && step === 'auth') {
       setStep('topics');
     }
   }, [user, step]);
@@ -94,12 +94,15 @@ export default function Onboarding() {
           {step !== 'complete' && (
             <>
               <h2 className="text-3xl font-bold text-gray-900">
-                {step === 'auth' ? 'Welcome to DropDaily' : 'Personalize Your Feed'}
+                {step === 'auth' ? 'Welcome to DropDaily' : 
+                 user?.isOnboarded ? 'Update Your Preferences' : 'Personalize Your Feed'}
               </h2>
               <p className="mt-2 text-gray-600">
                 {step === 'auth' 
                   ? 'AI-powered content discovery for busy professionals'
-                  : 'Tell us what interests you to get started'
+                  : user?.isOnboarded 
+                    ? 'Update your content preferences to refine your daily drops'
+                    : 'Tell us what interests you to get started'
                 }
               </p>
             </>
