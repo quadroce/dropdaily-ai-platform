@@ -3,8 +3,7 @@ import { createServer } from "http";
 
 const app = express();
 
-// ULTRA-CRITICAL: Health check endpoints for deployment
-// Only specific health endpoints, NOT the root path in production
+// ULTRA-CRITICAL: Health check endpoints for deployment (non-root paths only)
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
@@ -17,6 +16,23 @@ app.get("/ready", (req, res) => {
   res.status(200).send("OK");
 });
 
+// EMERGENCY ROOT ROUTE - Temporary fix while Vite loads
+app.get("/", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html><head><title>DropDaily Loading...</title></head>
+    <body>
+      <div id="root">
+        <div style="text-align:center;padding:50px;">
+          <h2>DropDaily is initializing...</h2>
+          <p>Please wait while the application loads.</p>
+          <script>setTimeout(function(){location.reload();}, 3000);</script>
+        </div>
+      </div>
+    </body></html>
+  `);
+});
+
 // Create server immediately with only health checks
 const server = createServer(app);
 
@@ -26,8 +42,9 @@ const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
 server.listen(port, "0.0.0.0", () => {
-  // Server is running, start background setup without logging
-  setTimeout(setupAppInBackground, 0); // Use setTimeout to ensure it's truly async
+  console.log("✅ Server started, initializing app...");
+  // Server is running, start background setup immediately
+  setupAppInBackground();
 });
 
 // Handle server errors
@@ -69,10 +86,18 @@ function setupAppInBackground(): void {
       });
 
       // Vite/static setup
+      console.log("🎯 Setting up Vite/Static serving...");
       if (process.env.NODE_ENV === "development") {
+        // Remove the temporary root route before setting up Vite
+        app._router.stack = app._router.stack.filter((layer: any) => 
+          !(layer.route && layer.route.path === '/' && layer.route.methods.get)
+        );
+        
         await setupVite(app, server);
+        console.log("✅ Vite setup completed - React app now available");
       } else {
         serveStatic(app);
+        console.log("✅ Static serving setup completed");
       }
 
       // Database setup (completely independent)
