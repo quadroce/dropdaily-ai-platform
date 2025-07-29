@@ -7,6 +7,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Health check endpoints will be added in routes.ts
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -39,49 +41,74 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize database before starting the application
+    log('🗄️ Initializing database...');
     await initializeDatabase();
-    
-    const server = await registerRoutes(app);
+    log('✅ Database initialization completed');
     
     // Setup automated content cleanup (only in production)
     if (process.env.NODE_ENV === 'production') {
+      log('🧹 Setting up cleanup cron...');
       const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
       setupCleanupCron();
+      log('✅ Cleanup cron setup completed');
     }
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    log('🔗 Setting up routes...');
+    const server = await registerRoutes(app);
+    log('✅ Routes setup completed');
 
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`serving on port ${port}`);
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      
+      console.error('Express error:', err);
+      res.status(status).json({ message });
     });
+
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      log('⚡ Setting up Vite development server...');
+      await setupVite(app, server);
+      log('✅ Vite setup completed');
+    } else {
+      log('📁 Setting up static file serving...');
+      serveStatic(app);
+      log('✅ Static file serving setup completed');
+    }
+
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || '5000', 10);
+    
+    log(`🚀 Starting server on port ${port}...`);
+    server.listen(port, "0.0.0.0", () => {
+      log(`✅ Server is running on port ${port}`);
+      log(`🌐 Health check: http://localhost:${port}/health`);
+    });
+
+    // Handle server errors
+    server.on('error', (error: any) => {
+      console.error('Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use`);
+        process.exit(1);
+      }
+    });
+
   } catch (error) {
-    console.error('Application startup failed:', error);
-    handleDatabaseError(error);
+    console.error('💥 Application startup failed:', error);
+    
+    // Don't call handleDatabaseError here as it may cause double exit
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
+    
     process.exit(1);
   }
 })();

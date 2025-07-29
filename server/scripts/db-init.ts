@@ -83,8 +83,8 @@ export function handleDatabaseError(error: any): void {
     console.error('   1. Run: npm run db:push');
     console.error('   2. Ensure DATABASE_URL is properly configured');
     console.error('   3. Check database connection and permissions');
-    process.exit(1);
   }
+  // Don't exit here when called from main app - let the caller handle it
   throw error;
 }
 
