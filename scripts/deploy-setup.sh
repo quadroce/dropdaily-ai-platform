@@ -21,9 +21,9 @@ echo "🗄️ Running database migrations..."
 npx drizzle-kit push --force
 
 echo "🔍 Verifying database tables..."
-node -e "
-const { db } = require('./server/db.ts');
-const { sql } = require('drizzle-orm');
+npx tsx -e "
+import { db } from './server/db.js';
+import { sql } from 'drizzle-orm';
 
 (async () => {
   try {
