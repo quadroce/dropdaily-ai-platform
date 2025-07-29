@@ -2,7 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertUserSchema, insertUserSubmissionSchema } from "@shared/schema";
+import { insertUserSchema, insertUserSubmissionSchema, content, contentTopics, topics } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, sql } from "drizzle-orm";
 import { initializeTopics, ingestYouTubeContent, processUserSubmission, generateDailyDropsForUser } from "./services/contentIngestion";
 import bcrypt from "bcrypt";
 
@@ -343,8 +345,171 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to load feeds to database:", error);
       res.status(500).json({ 
-        error: "Failed to load feeds", 
-        details: error instanceof Error ? error.message : "Unknown error" 
+        error: "Failed to load feeds to database",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Classify all unclassified content with intelligent fallback
+  app.post("/api/admin/rss/classify-all", async (req, res) => {
+    try {
+      console.log("🎯 Starting automatic classification of unclassified content...");
+      
+      // Import database and schemas dynamically 
+      const { db } = await import("./db");
+      const { content, contentTopics, topics } = await import("@shared/schema");
+      const { eq, and, sql } = await import("drizzle-orm");
+      
+      // Find content without topic classifications
+      const unclassifiedContent = await db
+        .select({
+          id: content.id,
+          title: content.title,
+          description: content.description,
+          url: content.url,
+          publishedAt: content.publishedAt,
+        })
+        .from(content)
+        .leftJoin(contentTopics, eq(content.id, contentTopics.contentId))
+        .where(and(
+          eq(content.status, 'approved'),
+          sql`${contentTopics.contentId} IS NULL`
+        ));
+
+      console.log(`📊 Found ${unclassifiedContent.length} articles without classifications`);
+
+      let classified = 0;
+      const processingStartTime = Date.now();
+
+      for (const article of unclassifiedContent) {
+        try {
+          // Smart keyword-based classification
+          const fallbackTopics = [];
+          const text = (article.title + ' ' + (article.description || '')).toLowerCase();
+          
+          // AI/ML Detection - highest priority for tech content
+          if (text.includes('ai') || text.includes('artificial intelligence') || text.includes('machine learning') || 
+              text.includes('openai') || text.includes('chatgpt') || text.includes('neural network') ||
+              text.includes('deep learning') || text.includes('gpt') || text.includes('llm') ||
+              text.includes('claude') || text.includes('gemini') || text.includes('anthropic')) {
+            fallbackTopics.push({ name: 'AI/ML', confidence: 0.85 });
+          }
+          
+          // Engineering Detection
+          if (text.includes('engineer') || text.includes('developer') || text.includes('programming') || 
+              text.includes('software') || text.includes('code') || text.includes('api') ||
+              text.includes('framework') || text.includes('library') || text.includes('github') ||
+              text.includes('tech') || text.includes('javascript') || text.includes('python')) {
+            fallbackTopics.push({ name: 'Engineering', confidence: 0.8 });
+          }
+          
+          // Business & Startup Detection
+          if (text.includes('business') || text.includes('startup') || text.includes('company') || 
+              text.includes('entrepreneur') || text.includes('funding') || text.includes('revenue') ||
+              text.includes('market') || text.includes('strategy') || text.includes('ceo') ||
+              text.includes('investment') || text.includes('vc') || text.includes('venture')) {
+            fallbackTopics.push({ name: 'Business', confidence: 0.75 });
+          }
+          
+          // Product Management Detection
+          if (text.includes('product') || text.includes('launch') || text.includes('feature') ||
+              text.includes('roadmap') || text.includes('release') || text.includes('user experience') ||
+              text.includes('pm') || text.includes('product manager')) {
+            fallbackTopics.push({ name: 'Product', confidence: 0.7 });
+          }
+          
+          // Design Detection
+          if (text.includes('design') || text.includes('ui') || text.includes('ux') ||
+              text.includes('interface') || text.includes('visual') || text.includes('branding') ||
+              text.includes('figma') || text.includes('designer')) {
+            fallbackTopics.push({ name: 'Design', confidence: 0.7 });
+          }
+          
+          // Data Science Detection
+          if (text.includes('data') || text.includes('analytics') || text.includes('science') ||
+              text.includes('analysis') || text.includes('metrics') || text.includes('statistics') ||
+              text.includes('visualization') || text.includes('dataset')) {
+            fallbackTopics.push({ name: 'Data Science', confidence: 0.75 });
+          }
+          
+          // DevOps Detection
+          if (text.includes('devops') || text.includes('deployment') || text.includes('cloud') ||
+              text.includes('docker') || text.includes('kubernetes') || text.includes('infrastructure') ||
+              text.includes('aws') || text.includes('azure') || text.includes('server')) {
+            fallbackTopics.push({ name: 'DevOps', confidence: 0.75 });
+          }
+          
+          // Security Detection
+          if (text.includes('security') || text.includes('privacy') || text.includes('breach') ||
+              text.includes('vulnerability') || text.includes('encryption') || text.includes('hack') ||
+              text.includes('cyber') || text.includes('malware')) {
+            fallbackTopics.push({ name: 'Security', confidence: 0.8 });
+          }
+          
+          // Leadership Detection
+          if (text.includes('leadership') || text.includes('management') || text.includes('team') ||
+              text.includes('culture') || text.includes('hiring') || text.includes('remote work') ||
+              text.includes('manager') || text.includes('lead')) {
+            fallbackTopics.push({ name: 'Leadership', confidence: 0.7 });
+          }
+          
+          // Remove duplicates and sort by confidence
+          const uniqueTopics = fallbackTopics
+            .filter((topic, index, self) => index === self.findIndex(t => t.name === topic.name))
+            .sort((a, b) => b.confidence - a.confidence)
+            .slice(0, 3); // Max 3 topics per article
+          
+          // Fallback to Business if no specific matches
+          if (uniqueTopics.length === 0) {
+            uniqueTopics.push({ name: 'Business', confidence: 0.5 });
+          }
+          
+          // Save classifications to database
+          for (const topic of uniqueTopics) {
+            const dbTopic = await db.select().from(topics).where(eq(topics.name, topic.name)).limit(1);
+            if (dbTopic[0]) {
+              await db.insert(contentTopics).values({
+                contentId: article.id,
+                topicId: dbTopic[0].id,
+                confidence: topic.confidence,
+              });
+            }
+          }
+          
+          classified++;
+          
+          // Progress logging every 50 articles
+          if (classified % 50 === 0) {
+            const elapsed = ((Date.now() - processingStartTime) / 1000).toFixed(1);
+            console.log(`📈 Progress: ${classified}/${unclassifiedContent.length} articles classified (${elapsed}s elapsed)`);
+          }
+          
+        } catch (error) {
+          console.error(`❌ Failed to classify article "${article.title}":`, error);
+        }
+      }
+
+      const totalTime = ((Date.now() - processingStartTime) / 1000).toFixed(1);
+      const successRate = unclassifiedContent.length > 0 ? (classified / unclassifiedContent.length * 100).toFixed(1) : '100';
+      
+      console.log(`🎉 Classification completed: ${classified}/${unclassifiedContent.length} articles (${successRate}%) in ${totalTime}s`);
+      
+      res.json({
+        success: true,
+        message: `Successfully classified ${classified} out of ${unclassifiedContent.length} articles using intelligent keyword analysis`,
+        data: { 
+          totalFound: unclassifiedContent.length, 
+          classified,
+          successRate: successRate + '%',
+          processingTime: totalTime + 's'
+        }
+      });
+    } catch (error) {
+      console.error('❌ Auto-classification failed:', error);
+      res.status(500).json({ 
+        error: "Failed to classify content automatically",
+        details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
