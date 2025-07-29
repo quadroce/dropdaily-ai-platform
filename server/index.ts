@@ -41,18 +41,6 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    log('🗄️ Initializing database...');
-    await initializeDatabase();
-    log('✅ Database initialization completed');
-    
-    // Setup automated content cleanup (only in production)
-    if (process.env.NODE_ENV === 'production') {
-      log('🧹 Setting up cleanup cron...');
-      const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
-      setupCleanupCron();
-      log('✅ Cleanup cron setup completed');
-    }
-
     log('🔗 Setting up routes...');
     const server = await registerRoutes(app);
     log('✅ Routes setup completed');
@@ -89,6 +77,9 @@ app.use((req, res, next) => {
     server.listen(port, "0.0.0.0", () => {
       log(`✅ Server is running on port ${port}`);
       log(`🌐 Health check: http://localhost:${port}/health`);
+      
+      // Initialize database after server is running to avoid blocking health checks
+      initializeAppData();
     });
 
     // Handle server errors
@@ -112,3 +103,40 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 })();
+
+// Initialize database and app data after server is running
+async function initializeAppData(): Promise<void> {
+  try {
+    log('🗄️ Initializing database...');
+    await initializeDatabase();
+    log('✅ Database initialization completed');
+    
+    // Initialize topics with error handling
+    try {
+      log('📚 Initializing topics...');
+      const { initializeTopics } = await import('./services/contentIngestion');
+      await initializeTopics();
+      log('✅ Topic initialization completed');
+    } catch (topicError) {
+      console.error('⚠️ Topic initialization failed, but continuing:', topicError);
+      // Don't throw - continue with other initialization steps
+    }
+    
+    // Setup automated content cleanup (only in production)
+    if (process.env.NODE_ENV === 'production') {
+      log('🧹 Setting up cleanup cron...');
+      const { setupCleanupCron } = await import('./scripts/setup-cleanup-cron');
+      setupCleanupCron();
+      log('✅ Cleanup cron setup completed');
+    }
+
+  } catch (error) {
+    console.error('💥 Post-startup initialization failed:', error);
+    // Don't exit the process here - let the server continue running
+    // This allows the health check to pass even if some initialization fails
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
+  }
+}

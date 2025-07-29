@@ -27,9 +27,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       version: "1.0.0"
     });
   });
-  
-  // Initialize topics on startup
-  await initializeTopics();
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
