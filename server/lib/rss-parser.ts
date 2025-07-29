@@ -11,6 +11,8 @@ export interface ParsedArticle {
   categories?: string[];
   content?: string;
   summary?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export interface FeedParseResult {
@@ -37,6 +39,9 @@ export class RSSParser {
           ['content:encoded', 'contentEncoded'],
           ['description', 'description'],
           ['summary', 'summary'],
+          ['media:content', 'mediaContent'],
+          ['media:thumbnail', 'mediaThumbnail'],
+          ['enclosure', 'enclosure'],
         ]
       }
     });
@@ -173,6 +178,13 @@ export class RSSParser {
       article.author = this.cleanText(item.creator || item.author);
     }
 
+    // Extract images from various RSS formats
+    const imageUrl = this.extractImageUrl(item);
+    if (imageUrl) {
+      article.imageUrl = imageUrl;
+      article.thumbnailUrl = imageUrl; // Use same image for thumbnail
+    }
+
     if (item.categories && Array.isArray(item.categories)) {
       article.categories = item.categories.map((cat: any) => 
         typeof cat === 'string' ? cat : cat.name || cat.term || ''
@@ -180,6 +192,58 @@ export class RSSParser {
     }
 
     return article;
+  }
+
+  /**
+   * Extract image URL from RSS item
+   */
+  private extractImageUrl(item: any): string | null {
+    // Try various RSS image formats
+    
+    // 1. Media RSS namespace (media:content, media:thumbnail)
+    if (item.mediaContent && Array.isArray(item.mediaContent)) {
+      const imageMedia = item.mediaContent.find((m: any) => 
+        m.$ && m.$.type && m.$.type.startsWith('image/')
+      );
+      if (imageMedia && imageMedia.$.url) {
+        return imageMedia.$.url;
+      }
+    }
+    
+    if (item.mediaThumbnail && item.mediaThumbnail.$ && item.mediaThumbnail.$.url) {
+      return item.mediaThumbnail.$.url;
+    }
+    
+    // 2. Enclosure (like iTunes)
+    if (item.enclosure && item.enclosure.type && item.enclosure.type.startsWith('image/')) {
+      return item.enclosure.url;
+    }
+    
+    // 3. Try to extract from content/description HTML
+    if (item.contentEncoded || item.description) {
+      const content = item.contentEncoded || item.description;
+      const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+      if (imgMatch && imgMatch[1]) {
+        return imgMatch[1];
+      }
+    }
+    
+    // 4. Look for common image fields
+    if (item.image) {
+      if (typeof item.image === 'string') {
+        return item.image;
+      }
+      if (item.image.url) {
+        return item.image.url;
+      }
+    }
+    
+    // 5. iTunes specific
+    if (item['itunes:image'] && item['itunes:image'].href) {
+      return item['itunes:image'].href;
+    }
+    
+    return null;
   }
 
   /**

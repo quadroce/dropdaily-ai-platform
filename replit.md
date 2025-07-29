@@ -8,6 +8,18 @@ DropDaily is an AI-powered content discovery platform that delivers personalized
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Updates (July 29, 2025)
+
+✅ **SEO Optimization Completed**: Landing page enhanced with comprehensive meta tags, Open Graph data, Twitter Cards, and JSON-LD structured data for improved search engine indexability.
+
+✅ **Routing Issues Resolved**: Fixed authentication flow routing - unauthenticated users see landing page and can access /login and /register properly, authenticated users are redirected appropriately.
+
+🔧 **RSS Image Extraction Enhanced**: Updated RSS parser to extract images from multiple formats (media:content, enclosures, HTML img tags) and store in image_url and thumbnail_url fields.
+
+🎨 **Source Attribution Improved**: ContentCard component now displays actual source names (Fast Company, TechCrunch, etc.) instead of "RSS" by extracting feed names and mapping domains to friendly names.
+
+⚠️ **Known Issue**: Some RSS feeds may not provide images in supported formats, fallback SVG placeholder continues to be used when no images are available.
+
 ## System Architecture
 
 ### Frontend Architecture

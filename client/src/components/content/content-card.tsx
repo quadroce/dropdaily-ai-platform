@@ -79,9 +79,50 @@ export function ContentCard({ drop }: ContentCardProps) {
 
   const getSourceLabel = () => {
     const metadata = drop.content.metadata as any;
+    
+    // For YouTube content, show channel name
     if (drop.content.source === 'youtube' && metadata?.channel) {
       return metadata.channel;
     }
+    
+    // For RSS/web content, show feed name if available
+    if (metadata?.feedName) {
+      return metadata.feedName;
+    }
+    
+    // Extract domain from URL as fallback
+    if (drop.content.url) {
+      try {
+        const url = new URL(drop.content.url);
+        let domain = url.hostname.replace('www.', '');
+        
+        // Map common domains to friendly names
+        const domainMap: Record<string, string> = {
+          'techcrunch.com': 'TechCrunch',
+          'theverge.com': 'The Verge',
+          'wired.com': 'Wired',
+          'arstechnica.com': 'Ars Technica',
+          'engadget.com': 'Engadget',
+          'fastcompany.com': 'Fast Company',
+          'venturebeat.com': 'VentureBeat',
+          'hackernews.com': 'Hacker News',
+          'zdnet.com': 'ZDNet',
+          'cnet.com': 'CNET',
+          'gizmodo.com': 'Gizmodo',
+          'mashable.com': 'Mashable',
+          'recode.net': 'Recode',
+          'medium.com': 'Medium',
+          'substack.com': 'Substack'
+        };
+        
+        return domainMap[domain] || domain.split('.')[0];
+      } catch {
+        // Fallback if URL parsing fails
+        return 'Web Article';
+      }
+    }
+    
+    // Default fallback
     return drop.content.source.charAt(0).toUpperCase() + drop.content.source.slice(1);
   };
 

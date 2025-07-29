@@ -5,8 +5,32 @@ import { Zap, Target, Clock, Brain, TrendingUp, Users } from "lucide-react";
 import { Link } from "wouter";
 
 export default function LandingPage() {
+  // SEO structured data for search engines
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "DropDaily",
+    "description": "AI-powered content discovery platform that delivers personalized daily technology content to busy professionals",
+    "url": "https://dropdaily.replit.app",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "creator": {
+      "@type": "Organization",
+      "name": "DropDaily"
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
+      {/* SEO structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,13 +66,14 @@ export default function LandingPage() {
           </Badge>
           
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-            Your daily dose of
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> tech content</span>
+            AI-Powered Daily Tech Content Discovery for Professionals
           </h1>
           
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            DropDaily uses artificial intelligence to curate and deliver 1-3 pieces of content daily, 
-            perfectly aligned with your professional interests. No spam, only what truly matters.
+            Get your daily dose of personalized technology content with DropDaily's AI curation. 
+            We deliver 1-3 carefully selected articles daily from top tech sources like TechCrunch, 
+            The Verge, Fast Company, and Wired - perfectly aligned with your professional interests. 
+            No information overload, just quality content that matters to your career.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">

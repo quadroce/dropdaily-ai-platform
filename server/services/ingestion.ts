@@ -243,6 +243,8 @@ export class IngestionService {
       guid: article.guid,
       publishedAt: article.publishedAt,
       fullContent: article.content,
+      imageUrl: article.imageUrl,
+      thumbnailUrl: article.thumbnailUrl,
       metadata: {
         author: article.author,
         categories: article.categories,
