@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ interface Bookmark {
 
 export default function Profile() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   const { data: preferences } = useQuery<TopicPreference[]>({
     queryKey: ['/api/users', user?.id, 'preferences'],
@@ -97,14 +99,14 @@ export default function Profile() {
                     </Badge>
                   ))}
                 </div>
-                <Button variant="outline" size="sm" className="mt-4">
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => setLocation('/onboarding')}>
                   Update Preferences
                 </Button>
               </div>
             ) : (
               <div className="text-center py-6">
                 <p className="text-gray-500">No preferences set</p>
-                <Button variant="outline" size="sm" className="mt-2">
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setLocation('/onboarding')}>
                   Set Your Preferences
                 </Button>
               </div>

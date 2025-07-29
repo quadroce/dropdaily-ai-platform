@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ export default function Settings() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [dailyDigest, setDailyDigest] = useState(true);
 
@@ -165,7 +167,7 @@ export default function Settings() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => setLocation('/onboarding')}>
                     Update Preferences
                   </Button>
                   <Button 
@@ -182,7 +184,7 @@ export default function Settings() {
             ) : (
               <div className="text-center py-6">
                 <p className="text-gray-500 mb-4">No preferences configured</p>
-                <Button variant="outline">
+                <Button variant="outline" onClick={() => setLocation('/onboarding')}>
                   Set Up Preferences
                 </Button>
               </div>
