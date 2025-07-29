@@ -22,6 +22,8 @@ Preferred communication style: Simple, everyday language.
 
 📱 **Multi-Platform Coverage**: System now ingests from 25+ RSS feeds PLUS social media platforms covering tech influencers (@elonmusk, @sama), YouTube channels (TechCrunch, Fireship), and Reddit communities (r/programming, r/startups).
 
+🗄️ **DATABASE OPTIMIZATION COMPLETED**: Implemented comprehensive content cleanup system with storage monitoring, automated retention policies, and admin interface at `/database-admin` to prevent unlimited table growth.
+
 ⚠️ **Known Issue**: Some RSS feeds may not provide images in supported formats, fallback SVG placeholder continues to be used when no images are available.
 
 ## System Architecture
@@ -46,11 +48,13 @@ Preferred communication style: Simple, everyday language.
 - **Content Classification**: GPT-4 (gpt-4o) for intelligent topic classification with rule-based fallback
 - **Matching Algorithm**: Vector similarity using cosine distance for personalized content recommendations
 
-### RSS Content Ingestion System
-- **Multi-Source Ingestion**: Automated ingestion from 25 RSS feeds including TechCrunch, The Verge, Wired, etc.
-- **Content Processing**: Real-time parsing, deduplication, and classification of 286+ articles
-- **Fallback Classification**: Rule-based topic classification when OpenAI quota exceeded
-- **Admin Dashboard**: Full RSS management interface at `/rss-admin` with statistics and manual controls
+### Content Ingestion & Management
+- **Multi-Source Ingestion**: Automated ingestion from 25+ RSS feeds plus social media platforms
+- **Content Processing**: Real-time parsing, deduplication, and AI classification of 486+ articles
+- **Social Media Integration**: X (Twitter), YouTube, and Reddit content ingestion with dedicated controls
+- **Database Optimization**: Automated cleanup system with 90-day retention policy and intelligent storage management
+- **Fallback Systems**: Rule-based topic classification when OpenAI quota exceeded
+- **Admin Interfaces**: Comprehensive management at `/rss-admin`, `/social-admin`, and `/database-admin`
 
 ## Key Components
 
@@ -72,10 +76,12 @@ Preferred communication style: Simple, everyday language.
 - **Topic Targeting**: Precise AI/ML, Engineering, Business topic matching working
 - **Fallback System**: Ensuring users always receive quality content when no perfect matches exist
 
-### Admin Dashboard
-- Content moderation interface for user submissions
-- System statistics and analytics
-- Automated content ingestion management
+### Admin Dashboard System
+- **Content Moderation**: Interface for user submissions review and approval
+- **RSS Management** (`/rss-admin`): Control RSS feed ingestion with statistics and manual triggers
+- **Social Media Control** (`/social-admin`): Multi-platform ingestion management (X, YouTube, Reddit)
+- **Database Optimization** (`/database-admin`): Storage monitoring, cleanup operations, and retention policies
+- **System Analytics**: Comprehensive statistics and automated content ingestion management
 
 ## Data Flow
 

@@ -411,6 +411,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Content Cleanup Routes
+  app.get("/api/admin/content/storage-stats", async (req, res) => {
+    try {
+      const { contentCleanup } = await import("./services/content-cleanup");
+      const stats = await contentCleanup.getStorageStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get storage stats:", error);
+      res.status(500).json({ 
+        error: "Failed to get storage statistics", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/admin/content/cleanup", async (req, res) => {
+    try {
+      const { contentCleanup } = await import("./services/content-cleanup");
+      const result = await contentCleanup.cleanupOldContent();
+      res.json({
+        success: true,
+        message: `Cleanup completed: ${result.deletedCount} articles removed`,
+        ...result
+      });
+    } catch (error) {
+      console.error("Content cleanup failed:", error);
+      res.status(500).json({ 
+        error: "Content cleanup failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  app.post("/api/admin/content/schedule-cleanup", async (req, res) => {
+    try {
+      const { contentCleanup } = await import("./services/content-cleanup");
+      await contentCleanup.scheduleCleanup();
+      res.json({
+        success: true,
+        message: "Scheduled cleanup completed successfully"
+      });
+    } catch (error) {
+      console.error("Scheduled cleanup failed:", error);
+      res.status(500).json({ 
+        error: "Scheduled cleanup failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   // Classify all unclassified content with intelligent fallback
   app.post("/api/admin/rss/classify-all", async (req, res) => {
     try {

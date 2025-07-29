@@ -10,6 +10,7 @@ import SubmitContent from "@/pages/submit-content";
 import AdminDashboard from "@/pages/admin-dashboard";
 import RSSAdmin from "@/pages/rss-admin";
 import SocialAdmin from "@/pages/social-admin";
+import DatabaseAdmin from "@/pages/database-admin";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
@@ -57,6 +58,7 @@ function AuthenticatedApp() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/social-admin" component={SocialAdmin} />
+        <Route path="/database-admin" component={DatabaseAdmin} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/login">
           {() => {

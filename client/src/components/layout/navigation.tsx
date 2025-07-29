@@ -24,7 +24,8 @@ export function Navigation() {
     ...(user?.role === "admin" ? [
       { label: "Admin", path: "/admin", icon: "fas fa-shield-alt" },
       { label: "RSS Admin", path: "/rss-admin", icon: "fas fa-rss" },
-      { label: "Social Media", path: "/social-admin", icon: "fas fa-hashtag" }
+      { label: "Social Media", path: "/social-admin", icon: "fas fa-hashtag" },
+      { label: "Database", path: "/database-admin", icon: "fas fa-database" }
     ] : []),
   ];
 
