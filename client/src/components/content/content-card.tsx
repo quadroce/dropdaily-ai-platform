@@ -160,7 +160,7 @@ export function ContentCard({ drop }: ContentCardProps) {
         </div>
 
         {/* Content Layout with Image on Right */}
-        <div className="flex gap-4">
+        <div className="flex gap-6">
           <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-900 mb-2 hover:text-primary transition-colors">
               {drop.content.title}
@@ -176,7 +176,7 @@ export function ContentCard({ drop }: ContentCardProps) {
                     {formatDuration(drop.content.duration)}
                   </span>
                 )}
-                {drop.content.viewCount > 0 && (
+                {drop.content.viewCount && drop.content.viewCount > 0 && (
                   <span className="flex items-center">
                     <Eye className="mr-1 h-4 w-4" />
                     {drop.content.viewCount.toLocaleString()}
