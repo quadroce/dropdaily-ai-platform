@@ -179,10 +179,10 @@ export function ContentCard({ drop }: ContentCardProps) {
                 {drop.content.viewCount && drop.content.viewCount > 0 && (
                   <span className="flex items-center">
                     <Eye className="mr-1 h-4 w-4" />
-                    {drop.content.viewCount.toLocaleString()}
+                    {drop.content.viewCount.toLocaleString()} views
                   </span>
                 )}
-                {drop.content.contentType && (
+                {drop.content.contentType && drop.content.contentType !== 'article' && (
                   <Badge variant="outline" className="text-xs">
                     {drop.content.contentType}
                   </Badge>
