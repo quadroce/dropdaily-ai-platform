@@ -11,6 +11,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import RSSAdmin from "@/pages/rss-admin";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
+import LandingPage from "@/pages/landing";
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
@@ -24,7 +25,7 @@ function AuthenticatedApp() {
   }
 
   if (!user) {
-    return <Onboarding />;
+    return <LandingPage />;
   }
 
   if (!user.isOnboarded) {
@@ -41,6 +42,8 @@ function AuthenticatedApp() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/rss-admin" component={RSSAdmin} />
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/auth/login" component={Onboarding} />
+        <Route path="/auth/register" component={Onboarding} />
         <Route component={NotFound} />
       </Switch>
     </div>

@@ -62,6 +62,7 @@ export const content = pgTable("content", {
   contentType: text("content_type").notNull(), // 'video', 'article', 'podcast'
   duration: integer("duration"), // in minutes for videos/podcasts
   thumbnailUrl: text("thumbnail_url"),
+  imageUrl: text("image_url"),
   transcript: text("transcript"),
   summary: text("summary"), // AI-generated summary
   fullContent: text("full_content"), // Full article content if available
