@@ -33,9 +33,13 @@ export default function Settings() {
   });
 
   const resetPreferencesMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/users/${user?.id}/preferences`, {
-      method: 'DELETE'
-    }),
+    mutationFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/preferences`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to reset preferences');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'preferences'] });
       toast({
@@ -73,9 +77,9 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" value={user.username} disabled />
-              <p className="text-xs text-gray-500">Username cannot be changed</p>
+              <Label htmlFor="username">Name</Label>
+              <Input id="username" value={`${user.firstName} ${user.lastName}`} disabled />
+              <p className="text-xs text-gray-500">Name cannot be changed</p>
             </div>
             
             <div className="space-y-2">

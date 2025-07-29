@@ -53,7 +53,7 @@ export default function Profile() {
           <CardContent className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-500">Name</label>
-              <p className="text-lg font-semibold">{user.username}</p>
+              <p className="text-lg font-semibold">{user.firstName} {user.lastName}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Email</label>
