@@ -155,8 +155,8 @@ export default function Settings() {
                   Current preferences ({preferences.length} topics):
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {preferences.map((pref) => (
-                    <Badge key={pref.topic.id} variant="outline">
+                  {preferences.map((pref, index) => (
+                    <Badge key={`${pref.topic.id}-${index}`} variant="outline">
                       {pref.topic.name}
                       <span className="ml-2 text-xs text-gray-500">
                         {Math.round(pref.weight * 100)}%

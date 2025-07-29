@@ -88,8 +88,8 @@ export default function Profile() {
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">Your personalized topics for daily content curation:</p>
                 <div className="flex flex-wrap gap-2">
-                  {preferences.map((pref) => (
-                    <Badge key={pref.topic.id} variant="outline" className="text-sm">
+                  {preferences.map((pref, index) => (
+                    <Badge key={`${pref.topic.id}-${index}`} variant="outline" className="text-sm">
                       {pref.topic.name}
                       <span className="ml-2 text-xs text-gray-500">
                         ({Math.round(pref.weight * 100)}%)
