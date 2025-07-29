@@ -21,7 +21,10 @@ export function Navigation() {
   const navItems = [
     { label: "Daily Drop", path: "/daily-drop", icon: "fas fa-droplet" },
     { label: "Submit Content", path: "/submit", icon: "fas fa-plus" },
-    ...(user?.role === "admin" ? [{ label: "Admin", path: "/admin", icon: "fas fa-shield-alt" }] : []),
+    ...(user?.role === "admin" ? [
+      { label: "Admin", path: "/admin", icon: "fas fa-shield-alt" },
+      { label: "RSS Admin", path: "/rss-admin", icon: "fas fa-rss" }
+    ] : []),
   ];
 
   const isActiveTab = (path: string) => {

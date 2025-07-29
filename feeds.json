@@ -5,24 +5,9 @@
     "tags": ["tech", "startup", "innovation"]
   },
   {
-    "name": "Medium AI",
-    "url": "https://medium.com/feed/tag/artificial-intelligence",
-    "tags": ["ai", "machine learning", "technology"]
-  },
-  {
-    "name": "Harvard Business Review",
-    "url": "https://feeds.hbr.org/harvardbusiness",
-    "tags": ["business", "management", "leadership"]
-  },
-  {
-    "name": "MIT Technology Review",
-    "url": "https://www.technologyreview.com/feed/",
-    "tags": ["tech", "innovation", "research"]
-  },
-  {
-    "name": "Fast Company",
-    "url": "https://www.fastcompany.com/latest/rss",
-    "tags": ["business", "innovation", "workplace"]
+    "name": "The Verge",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "tags": ["tech", "gadgets", "science"]
   },
   {
     "name": "Wired",
@@ -30,9 +15,49 @@
     "tags": ["tech", "science", "culture"]
   },
   {
-    "name": "The Verge",
-    "url": "https://www.theverge.com/rss/index.xml",
-    "tags": ["tech", "gadgets", "science"]
+    "name": "Ars Technica",
+    "url": "http://feeds.arstechnica.com/arstechnica/index",
+    "tags": ["tech", "science", "policy"]
+  },
+  {
+    "name": "Engadget",
+    "url": "https://www.engadget.com/rss.xml",
+    "tags": ["gadgets", "consumer tech", "reviews"]
+  },
+  {
+    "name": "CNET",
+    "url": "https://www.cnet.com/rss/all/",
+    "tags": ["tech", "reviews", "consumer electronics"]
+  },
+  {
+    "name": "Mashable",
+    "url": "https://mashable.com/feed/",
+    "tags": ["tech", "culture", "digital"]
+  },
+  {
+    "name": "Gizmodo",
+    "url": "https://gizmodo.com/rss",
+    "tags": ["tech", "science", "culture"]
+  },
+  {
+    "name": "VentureBeat",
+    "url": "https://venturebeat.com/feed/",
+    "tags": ["tech", "startups", "innovation"]
+  },
+  {
+    "name": "Harvard Business Review",
+    "url": "https://feeds.hbr.org/harvardbusiness",
+    "tags": ["business", "management", "leadership"]
+  },
+  {
+    "name": "Fast Company",
+    "url": "https://www.fastcompany.com/latest/rss",
+    "tags": ["business", "innovation", "workplace"]
+  },
+  {
+    "name": "Inc.com",
+    "url": "https://www.inc.com/rss.xml",
+    "tags": ["business", "startup", "leadership"]
   },
   {
     "name": "McKinsey Insights",
@@ -40,13 +65,63 @@
     "tags": ["business", "strategy", "consulting"]
   },
   {
-    "name": "Entrepreneur",
-    "url": "https://www.entrepreneur.com/latest.rss",
-    "tags": ["entrepreneurship", "startup", "business"]
+    "name": "TechRepublic",
+    "url": "https://www.techrepublic.com/rssfeeds/",
+    "tags": ["IT", "business technology", "enterprise"]
   },
   {
-    "name": "Inc.com",
-    "url": "https://www.inc.com/rss.xml",
-    "tags": ["business", "startup", "leadership"]
+    "name": "The Next Web",
+    "url": "https://thenextweb.com/feed/",
+    "tags": ["tech", "innovation", "startup"] 
+  },
+  {
+    "name": "Techmeme",
+    "url": "https://www.techmeme.com/feed.xml",
+    "tags": ["aggregator", "tech news", "trends"]
+  },
+  {
+    "name": "Computer Weekly",
+    "url": "https://www.computerweekly.com/rssfeeds/latestcontent.xml",
+    "tags": ["IT", "enterprise", "technology"]
+  },
+  {
+    "name": "Trend Hunter Innovation",
+    "url": "https://www.trendhunter.com/rss.xml",
+    "tags": ["innovation", "trends", "future"]
+  },
+  {
+    "name": "RSS.app Tech Feeds",
+    "url": "https://rss.app/feeds/technology.rss", 
+    "tags": ["tech", "aggregator", "technology"]
+  },
+  {
+    "name": "Feedspot Business Top RSS",
+    "url": "https://rss.feedspot.com/business_rss_feeds.xml", 
+    "tags": ["business", "leadership", "strategy"]
+  },
+  {
+    "name": "Feedspot Tech Top RSS",
+    "url": "https://rss.feedspot.com/technology_rss_feeds.xml",
+    "tags": ["tech", "innovation", "reviews"]
+  },
+  {
+    "name": "Tipp Tech & Finance",
+    "url": "https://tipp.so/rss/feed", 
+    "tags": ["news", "tech", "finance"]
+  },
+  {
+    "name": "Daily Dot",
+    "url": "https://www.dailydot.com/rss.xml",
+    "tags": ["internet culture", "media", "tech"]
+  },
+  {
+    "name": "Lifehacker",
+    "url": "https://lifehacker.com/rss",
+    "tags": ["productivity", "tech", "advice"]
+  },
+  {
+    "name": "HuffPost Tech",
+    "url": "https://www.huffpost.com/section/technology/feed",
+    "tags": ["tech", "news", "culture"]
   }
 ]
