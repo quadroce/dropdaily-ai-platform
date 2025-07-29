@@ -84,6 +84,45 @@ export default function RSSAdmin() {
     },
   });
 
+  // Load feeds to database mutation
+  const loadFeedsMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/rss/load-feeds", {}),
+    onSuccess: () => {
+      toast({
+        title: "Feeds Loaded",
+        description: "RSS feeds have been loaded to the database successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/feeds"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/stats"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Load Feeds Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Fallback RSS ingestion mutation
+  const fallbackIngestMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/ingest/rss-fallback", { limit: 2 }),
+    onSuccess: (data) => {
+      toast({
+        title: "Fallback Ingestion Complete",
+        description: data.message || "Content ingested without AI classification",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/rss/stats"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fallback Ingestion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleRunIngestion = () => {
     setLoading("ingestion");
     ingestMutation.mutate();
@@ -92,6 +131,16 @@ export default function RSSAdmin() {
   const handleRunDailyDrops = () => {
     setLoading("daily-drops");
     dailyDropsMutation.mutate();
+  };
+
+  const handleLoadFeeds = () => {
+    setLoading("load-feeds");
+    loadFeedsMutation.mutate();
+  };
+
+  const handleFallbackIngest = () => {
+    setLoading("fallback-ingest");
+    fallbackIngestMutation.mutate();
   };
 
   const refreshData = () => {
@@ -186,7 +235,7 @@ export default function RSSAdmin() {
       </div>
 
       {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* RSS Ingestion */}
         <Card>
           <CardHeader>
@@ -255,6 +304,80 @@ export default function RSSAdmin() {
                 <Mail className="h-4 w-4 mr-2" />
               )}
               Generate Daily Drops
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Load Feeds */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Load Feeds to Database
+            </CardTitle>
+            <CardDescription>
+              Load RSS feeds from configuration file to database
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              This process will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Read feeds from feeds.json configuration</li>
+                <li>Validate feed URLs and settings</li>
+                <li>Save feeds to database for ingestion</li>
+                <li>Enable automated content discovery</li>
+              </ul>
+            </div>
+            <Button 
+              onClick={handleLoadFeeds}
+              disabled={loadFeedsMutation.isPending}
+              className="w-full"
+              variant="outline"
+            >
+              {loadFeedsMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              Load Feeds to Database
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Fallback RSS Ingestion */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Fallback Ingestion
+            </CardTitle>
+            <CardDescription>
+              Ingest RSS content without AI classification (when OpenAI quota exceeded)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              This process will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Fetch RSS content from active feeds</li>
+                <li>Save content as "draft" status</li>
+                <li>Skip AI classification (no embeddings)</li>
+                <li>Allow manual review and processing later</li>
+              </ul>
+            </div>
+            <Button 
+              onClick={handleFallbackIngest}
+              disabled={fallbackIngestMutation.isPending}
+              className="w-full"
+              variant="secondary"
+            >
+              {fallbackIngestMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 mr-2" />
+              )}
+              Run Fallback Ingestion
             </Button>
           </CardContent>
         </Card>

@@ -99,6 +99,47 @@ export class FeedsLoader {
   getFeedsByTag(tag: string): FeedConfig[] {
     return this.feeds.filter(feed => feed.tags.includes(tag));
   }
+
+  /**
+   * Save feeds to database
+   */
+  async saveFeeds(): Promise<void> {
+    const { db } = await import("../db");
+    const { feeds, insertFeedSchema } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    
+    try {
+      console.log('💾 Saving feeds to database...');
+      
+      for (const feedConfig of this.feeds) {
+        const feedData = insertFeedSchema.parse({
+          name: feedConfig.name,
+          url: feedConfig.url,
+          tags: feedConfig.tags,
+          isActive: true
+        });
+
+        // Check if feed already exists
+        const existingFeed = await db
+          .select()
+          .from(feeds)
+          .where(eq(feeds.url, feedData.url))
+          .limit(1);
+
+        if (existingFeed.length === 0) {
+          await db.insert(feeds).values(feedData);
+          console.log(`✅ Saved feed: ${feedConfig.name}`);
+        } else {
+          console.log(`⏭️ Feed already exists: ${feedConfig.name}`);
+        }
+      }
+      
+      console.log('🎉 All feeds saved to database');
+    } catch (error) {
+      console.error('❌ Failed to save feeds to database:', error);
+      throw error;
+    }
+  }
 }
 
 export const feedsLoader = FeedsLoader.getInstance();

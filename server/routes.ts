@@ -327,6 +327,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Load feeds from JSON to database
+  app.post("/api/admin/rss/load-feeds", async (req, res) => {
+    try {
+      const { feedsLoader } = await import("./lib/feeds-loader");
+      feedsLoader.loadFeeds(); // Load from JSON
+      await feedsLoader.saveFeeds(); // Save to database
+      
+      const feeds = feedsLoader.getFeeds();
+      res.json({ 
+        success: true, 
+        message: `Loaded ${feeds.length} feeds to database`,
+        feeds 
+      });
+    } catch (error) {
+      console.error("Failed to load feeds to database:", error);
+      res.status(500).json({ 
+        error: "Failed to load feeds", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   // Create admin user endpoint (for development/setup)
   app.post("/api/admin/create-admin", async (req, res) => {
     try {
@@ -364,6 +386,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to create admin user:", error);
       res.status(500).json({ error: "Failed to create admin user" });
+    }
+  });
+
+  // Test RSS ingestion without OpenAI (fallback mode)
+  app.post("/api/admin/ingest/rss-fallback", async (req, res) => {
+    try {
+      const { limit = 3 } = req.body;
+      const { db } = await import("./db");
+      const { feeds, content, insertContentSchema } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const Parser = (await import("rss-parser")).default;
+      
+      console.log('🔄 Starting RSS ingestion (fallback mode)...');
+      
+      // Get active feeds from database
+      const activeFeeds = await db
+        .select()
+        .from(feeds)
+        .where(eq(feeds.isActive, true));
+      
+      console.log(`📡 Found ${activeFeeds.length} active feeds`);
+      
+      if (activeFeeds.length === 0) {
+        return res.json({ success: false, message: "No active feeds found" });
+      }
+      
+      const parser = new Parser();
+      let totalIngested = 0;
+      const results = [];
+      
+      for (const feed of activeFeeds.slice(0, 2)) { // Limit to 2 feeds
+        try {
+          console.log(`📥 Fetching feed: ${feed.name}`);
+          const feedData = await parser.parseURL(feed.url);
+          
+          for (const item of feedData.items.slice(0, limit)) {
+            try {
+              // Check if content already exists
+              const existingContent = await db
+                .select()
+                .from(content)
+                .where(eq(content.url, item.link || ''))
+                .limit(1);
+              
+              if (existingContent.length > 0) {
+                console.log(`⏭️ Content already exists: ${item.title}`);
+                continue;
+              }
+              
+              // Create content without AI classification
+              const contentData = insertContentSchema.parse({
+                title: item.title || 'Untitled',
+                description: item.contentSnippet || item.summary || '',
+                url: item.link || '',
+                source: feed.name,
+                contentType: 'article',
+                author: item.creator || item.author || null,
+                publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+                embedding: null, // Will be generated later
+                status: 'pending' // Set to pending until AI processing
+              });
+              
+              await db.insert(content).values(contentData);
+              totalIngested++;
+              console.log(`✅ Ingested: ${item.title}`);
+              
+            } catch (itemError) {
+              console.error(`❌ Failed to ingest item from ${feed.name}:`, itemError);
+            }
+          }
+          
+          results.push({
+            feedName: feed.name,
+            itemsProcessed: Math.min(limit, feedData.items.length)
+          });
+          
+        } catch (feedError) {
+          console.error(`❌ Failed to fetch feed ${feed.name}:`, feedError);
+          results.push({
+            feedName: feed.name,
+            error: feedError instanceof Error ? feedError.message : 'Unknown error'
+          });
+        }
+      }
+      
+      console.log(`🎉 Ingestion complete: ${totalIngested} items ingested`);
+      
+      res.json({ 
+        success: true, 
+        message: `Ingested ${totalIngested} items in fallback mode (no AI classification)`,
+        totalIngested,
+        results,
+        note: "Content ingested without AI classification due to OpenAI quota limits"
+      });
+      
+    } catch (error) {
+      console.error("RSS fallback ingestion failed:", error);
+      res.status(500).json({ 
+        error: "RSS fallback ingestion failed", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
