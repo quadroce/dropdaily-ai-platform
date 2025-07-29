@@ -3,12 +3,8 @@ import { createServer } from "http";
 
 const app = express();
 
-// ULTRA-CRITICAL: Health check endpoints FIRST - before ANY middleware or imports
-// These endpoints MUST be the first routes registered to avoid any blocking
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
-
+// ULTRA-CRITICAL: Health check endpoints for deployment
+// Only specific health endpoints, NOT the root path in production
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
