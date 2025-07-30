@@ -54,7 +54,47 @@ function setupAppInBackground(): void {
   Promise.resolve().then(async () => {
     console.log("🔧 Background setup starting...");
     try {
-      // PRIORITY 1: Setup Vite/static serving FIRST for immediate UI availability
+      // PRIORITY 1: Basic middleware first
+      console.log("🔧 Setting up middleware...");
+      app.use(express.json());
+      app.use(express.urlencoded({ extended: false }));
+
+      // Logging middleware  
+      app.use((req, res, next) => {
+        const start = Date.now();
+        res.on("finish", () => {
+          const duration = Date.now() - start;
+          if (req.path.startsWith("/api") && duration > 100) {
+            console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+          }
+        });
+        next();
+      });
+
+      // PRIORITY 2: Load API routes BEFORE Vite to ensure they work
+      console.log("📥 Loading API routes...");
+      const { registerRoutes } = await import('./routes');
+      await registerRoutes(app);
+      console.log("✅ API routes loaded successfully");
+
+      // Error handling for API routes
+      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+        console.error('API Error:', err);
+        
+        // Don't crash on OpenAI quota errors
+        if (err.message?.includes('429') || err.message?.includes('quota')) {
+          return res.status(200).json({ 
+            message: "Service temporarily limited due to external API constraints",
+            fallback: true
+          });
+        }
+        
+        res.status(err.status || 500).json({ 
+          message: err.status === 500 ? "Service temporarily unavailable" : err.message || "Internal Server Error" 
+        });
+      });
+
+      // PRIORITY 3: Setup Vite/static serving AFTER routes
       console.log("📥 Importing vite module...");
       let viteModule;
       try {
@@ -82,53 +122,7 @@ function setupAppInBackground(): void {
         console.log("✅ Fallback static serving is active");
       }
 
-      // PRIORITY 2: Basic middleware
-      console.log("🔧 Setting up middleware...");
-      app.use(express.json());
-      app.use(express.urlencoded({ extended: false }));
-
-      // Logging middleware  
-      app.use((req, res, next) => {
-        const start = Date.now();
-        res.on("finish", () => {
-          const duration = Date.now() - start;
-          if (req.path.startsWith("/api") && duration > 100) {
-            console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
-          }
-        });
-        next();
-      });
-
-      // Error handling
-      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-        console.error('API Error:', err);
-        
-        // Don't crash on OpenAI quota errors
-        if (err.message?.includes('429') || err.message?.includes('quota')) {
-          return res.status(200).json({ 
-            message: "Service temporarily limited due to external API constraints",
-            fallback: true
-          });
-        }
-        
-        res.status(err.status || 500).json({ 
-          message: err.status === 500 ? "Service temporarily unavailable" : err.message || "Internal Server Error" 
-        });
-      });
-
       console.log("🎉 Core application setup completed!");
-
-      // PRIORITY 3: Load routes in background (non-blocking)
-      setTimeout(async () => {
-        try {
-          console.log("📥 Loading routes in background...");
-          const { registerRoutes } = await import('./routes');
-          await registerRoutes(app);
-          console.log("✅ Routes loaded successfully");
-        } catch (error) {
-          console.error("❌ Failed to load routes:", error);
-        }
-      }, 1000);
 
       // Database setup (completely independent)
       setTimeout(() => {
