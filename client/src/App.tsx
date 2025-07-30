@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,7 +19,6 @@ import LandingPage from "@/pages/landing";
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
-  const [, setLocation] = useLocation();
 
   if (loading) {
     return (
@@ -64,30 +63,7 @@ function AuthenticatedApp() {
         <Route path="/social-admin" component={SocialAdmin} />
         <Route path="/database-admin" component={DatabaseAdmin} />
         <Route path="/onboarding" component={Onboarding} />
-        <Route path="/login">
-          {() => {
-            setLocation("/");
-            return null;
-          }}
-        </Route>
-        <Route path="/register">
-          {() => {
-            setLocation("/");
-            return null;
-          }}
-        </Route>
-        <Route path="/auth/login">
-          {() => {
-            setLocation("/");
-            return null;
-          }}
-        </Route>
-        <Route path="/auth/register">
-          {() => {
-            setLocation("/");
-            return null;
-          }}
-        </Route>
+
         <Route component={NotFound} />
       </Switch>
     </div>
