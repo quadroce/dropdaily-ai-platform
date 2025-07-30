@@ -16,6 +16,7 @@ import Settings from "@/pages/settings";
 import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import ResetPassword from "@/pages/reset-password";
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
@@ -37,6 +38,7 @@ function AuthenticatedApp() {
         <Route path="/auth/login" component={Onboarding} />
         <Route path="/auth/register" component={Onboarding} />
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/reset-password" component={ResetPassword} />
         <Route path="/" component={LandingPage} />
         <Route component={LandingPage} />
       </Switch>

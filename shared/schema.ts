@@ -20,6 +20,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Password reset tokens table
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Topics table - predefined content categories
 export const topics = pgTable("topics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -164,6 +174,21 @@ export const insertDailyDropSchema = createInsertSchema(dailyDrops).omit({
   createdAt: true,
 });
 
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Password reset validation schemas
+export const requestPasswordResetSchema = z.object({
+  email: z.string().email("Email non valida"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token richiesto"),
+  newPassword: z.string().min(6, "Password deve essere almeno 6 caratteri"),
+});
+
 // Type exports
 export type Feed = typeof feeds.$inferSelect;
 export type InsertFeed = z.infer<typeof insertFeedSchema>;
@@ -188,6 +213,9 @@ export type DailyDrop = typeof dailyDrops.$inferSelect;
 export type InsertDailyDrop = z.infer<typeof insertDailyDropSchema>;
 
 export type UserProfileVector = typeof userProfileVectors.$inferSelect;
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 
 // Extended types for API responses
 export type ContentWithTopics = Content & {

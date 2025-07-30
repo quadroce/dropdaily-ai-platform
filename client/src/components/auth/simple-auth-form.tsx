@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, User } from "lucide-react";
+import { ForgotPasswordForm } from "./forgot-password-form";
 
 interface SimpleAuthFormProps {
   onSuccess: () => void;
@@ -16,6 +17,7 @@ export function SimpleAuthForm({ onSuccess }: SimpleAuthFormProps) {
   const { login, register } = useAuth();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
   // Form state
@@ -110,6 +112,13 @@ export function SimpleAuthForm({ onSuccess }: SimpleAuthFormProps) {
     }
   };
 
+  // Show forgot password form if requested
+  if (showForgotPassword) {
+    return (
+      <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -201,6 +210,19 @@ export function SimpleAuthForm({ onSuccess }: SimpleAuthFormProps) {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Loading..." : (isLogin ? "Sign In" : "Create Account")}
           </Button>
+          
+          {isLogin && (
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                className="text-sm p-0 h-auto"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Password dimenticata?
+              </Button>
+            </div>
+          )}
         </form>
 
         <Separator />

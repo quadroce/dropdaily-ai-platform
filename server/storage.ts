@@ -5,11 +5,11 @@ import type {
   User, InsertUser, Topic, InsertTopic, Content, InsertContent, 
   UserSubmission, InsertUserSubmission, UserPreference, InsertUserPreference,
   DailyDrop, InsertDailyDrop, ContentWithTopics, UserSubmissionWithUser,
-  DailyDropWithContent
+  DailyDropWithContent, PasswordResetToken, InsertPasswordResetToken
 } from "@shared/schema";
 import { 
   users, topics, content, userSubmissions, userPreferences, 
-  dailyDrops, contentTopics, userProfileVectors 
+  dailyDrops, contentTopics, userProfileVectors, passwordResetTokens
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -30,6 +30,12 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  
+  // Password reset
+  createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markTokenAsUsed(token: string): Promise<void>;
+  cleanupExpiredTokens(): Promise<void>;
 
   // Topics
   getAllTopics(): Promise<Topic[]>;
@@ -100,6 +106,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return result[0];
+  }
+
+  // Password reset methods
+  async createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const id = randomUUID();
+    const resetToken = {
+      id,
+      email,
+      token,
+      expiresAt,
+      used: false,
+      createdAt: new Date()
+    };
+    await db.insert(passwordResetTokens).values(resetToken);
+    return resetToken as PasswordResetToken;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const result = await db.select()
+      .from(passwordResetTokens)
+      .where(and(
+        eq(passwordResetTokens.token, token),
+        eq(passwordResetTokens.used, false)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async markTokenAsUsed(token: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    await db.delete(passwordResetTokens)
+      .where(sql`expires_at < NOW()`);
   }
 
   async getAllTopics(): Promise<Topic[]> {

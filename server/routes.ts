@@ -2,11 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertUserSchema, insertUserSubmissionSchema, content, contentTopics, topics } from "@shared/schema";
+import { insertUserSchema, insertUserSubmissionSchema, content, contentTopics, topics, requestPasswordResetSchema, resetPasswordSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 import { initializeTopics, ingestYouTubeContent, processUserSubmission, generateDailyDropsForUser } from "./services/contentIngestion";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health endpoints are now handled in index.ts for immediate response
@@ -59,6 +60,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Password reset request
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const validatedData = requestPasswordResetSchema.parse(req.body);
+      
+      // Check if user exists
+      const user = await storage.getUserByEmail(validatedData.email);
+      if (!user) {
+        // Don't reveal if email exists for security
+        return res.json({ message: "Se l'email esiste, riceverai le istruzioni per il reset" });
+      }
+
+      // Generate secure token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+      // Save token
+      await storage.createPasswordResetToken(validatedData.email, token, expiresAt);
+
+      // In a real app, you would send an email here
+      // For now, we'll log the reset link for development
+      const resetLink = `${req.get('host')}/reset-password?token=${token}`;
+      console.log(`🔑 Password reset link for ${validatedData.email}: ${resetLink}`);
+
+      res.json({ 
+        message: "Se l'email esiste, riceverai le istruzioni per il reset",
+        // In development, include the token for testing
+        ...(process.env.NODE_ENV === 'development' && { resetToken: token })
+      });
+    } catch (error) {
+      console.error("Password reset request error:", error);
+      res.status(400).json({ message: "Dati non validi" });
+    }
+  });
+
+  // Password reset
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const validatedData = resetPasswordSchema.parse(req.body);
+      
+      // Get and validate token
+      const resetToken = await storage.getPasswordResetToken(validatedData.token);
+      if (!resetToken) {
+        return res.status(400).json({ message: "Token non valido o scaduto" });
+      }
+
+      // Check if token is expired
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ message: "Token scaduto" });
+      }
+
+      // Get user
+      const user = await storage.getUserByEmail(resetToken.email);
+      if (!user) {
+        return res.status(404).json({ message: "Utente non trovato" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
+      
+      // Update password
+      await storage.updateUser(user.id, { password: hashedPassword });
+      
+      // Mark token as used
+      await storage.markTokenAsUsed(validatedData.token);
+
+      res.json({ message: "Password aggiornata con successo" });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(400).json({ message: "Errore durante il reset della password" });
     }
   });
 
