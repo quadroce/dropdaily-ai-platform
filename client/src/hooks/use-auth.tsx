@@ -55,8 +55,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Registration failed");
+      let errorMessage = "Registration failed";
+      try {
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const error = await response.json();
+          errorMessage = error.message || "Registration failed";
+        } else {
+          // If not JSON, get text content
+          const errorText = await response.text();
+          console.error("Non-JSON error response:", errorText);
+          errorMessage = "Server error - please try again";
+        }
+      } catch (parseError) {
+        console.error("Failed to parse error response:", parseError);
+        errorMessage = "Network error - please try again";
+      }
+      throw new Error(errorMessage);
     }
 
     const newUser = await response.json();
