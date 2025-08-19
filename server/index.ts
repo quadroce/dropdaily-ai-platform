@@ -39,26 +39,31 @@ app.get("/ready", (req, res) => {
   res.status(200).end("OK");
 });
 
-// Add immediate response for health check endpoints only
+// Global state to track if app is fully initialized
+let appInitialized = false;
+
+// Add immediate response for health check endpoints only  
 app.use((req, res, next) => {
-  // Dedicated health check endpoints
+  // Dedicated health check endpoints - always respond immediately
   if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
     res.setHeader('Content-Type', 'text/plain');
     return res.status(200).end("OK");
   }
   
-  // Root path health checks ONLY for specific deployment user agents
-  if (req.path === '/' && req.method === 'GET') {
-    const userAgent = req.get('User-Agent') || '';
-    
-    // Only respond to specific deployment probes, not browsers
-    if (userAgent.includes('deployment-probe') || 
-        userAgent.includes('health-check') || 
-        userAgent.includes('replit-deployment') ||
-        userAgent.includes('load-balancer')) {
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).end("OK");
-    }
+  // For all other requests, check if app is initialized
+  if (!appInitialized && !req.path.startsWith('/api')) {
+    console.log(`⏳ App not ready yet for: ${req.method} ${req.path}`);
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(503).send(`
+      <!DOCTYPE html>
+      <html><head><title>Loading DropDaily...</title>
+      <meta http-equiv="refresh" content="2">
+      </head><body>
+      <h1>DropDaily is starting up...</h1>
+      <p>Please wait, the application will be ready in a moment.</p>
+      <script>setTimeout(() => window.location.reload(), 2000);</script>
+      </body></html>
+    `);
   }
   
   next();
@@ -164,6 +169,10 @@ function setupAppInBackground(): void {
       }
 
       console.log("🎉 Core application setup completed!");
+      
+      // Mark app as fully initialized
+      appInitialized = true;
+      console.log("✅ App now ready to serve requests!");
 
       // Database setup (completely independent and fire-and-forget)
       setImmediate(() => {
