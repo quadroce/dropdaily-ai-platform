@@ -12,60 +12,75 @@ if (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && proces
   }
 }
 
-// Global error handlers for production stability
+// Global error handlers for production stability and deployment resilience
 process.on('uncaughtException', (error) => {
   console.error('💥 Uncaught Exception:', error);
   console.error('Application continuing with degraded functionality...');
+  // Don't exit - keep health checks working for deployment
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
   console.error('Application continuing with degraded functionality...');
+  // Don't exit - keep health checks working for deployment
 });
 
-// ULTRA-CRITICAL: Health check endpoints for deployment (immediate response, no dependencies)
+// Add SIGTERM handler for graceful shutdown during deployment
+process.on('SIGTERM', () => {
+  console.log('🔄 Received SIGTERM, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+// ULTRA-CRITICAL: Dedicated health check endpoints for deployment (immediate response, no dependencies)
+// These endpoints MUST respond within 2 seconds for deployment success
 app.get("/health", (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'no-cache');
   res.status(200).end("OK");
 });
 
 app.get("/healthz", (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'no-cache');
   res.status(200).end("OK");
 });
 
 app.get("/ready", (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'no-cache');
   res.status(200).end("OK");
+});
+
+// Lightweight root endpoint that responds immediately during startup
+app.get("/", (req, res, next) => {
+  // If app is not fully initialized, serve a minimal loading page
+  if (!appInitialized) {
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.status(200).send(`<!DOCTYPE html>
+<html><head><title>DropDaily</title><meta http-equiv="refresh" content="3"></head>
+<body><h1>DropDaily</h1><p>Loading...</p><script>setTimeout(()=>location.reload(),3000);</script></body></html>`);
+  }
+  // If fully initialized, continue to normal routing
+  next();
 });
 
 // Global state to track if app is fully initialized
 let appInitialized = false;
 
-// Add immediate response for health check endpoints only  
+// DEPLOYMENT CRITICAL: Health check middleware with highest priority
 app.use((req, res, next) => {
-  // Dedicated health check endpoints - always respond immediately
+  // Health check endpoints get absolute priority - no dependencies, no delays
   if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
     res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Cache-Control', 'no-cache');
     return res.status(200).end("OK");
   }
   
-  // For all other requests, check if app is initialized
-  if (!appInitialized && !req.path.startsWith('/api')) {
-    console.log(`⏳ App not ready yet for: ${req.method} ${req.path}`);
-    res.setHeader('Content-Type', 'text/html');
-    return res.status(503).send(`
-      <!DOCTYPE html>
-      <html><head><title>Loading DropDaily...</title>
-      <meta http-equiv="refresh" content="2">
-      </head><body>
-      <h1>DropDaily is starting up...</h1>
-      <p>Please wait, the application will be ready in a moment.</p>
-      <script>setTimeout(() => window.location.reload(), 2000);</script>
-      </body></html>
-    `);
-  }
-  
+  // Continue to normal routing for all other requests
   next();
 });
 
@@ -73,6 +88,11 @@ app.use((req, res, next) => {
 
 // Create server immediately with only health checks
 const server = createServer(app);
+
+// Server configuration for deployment optimization
+server.timeout = 30000; // 30 second timeout
+server.keepAliveTimeout = 65000; // Keep alive longer than timeout
+server.headersTimeout = 66000; // Headers timeout slightly longer
 
 
 
@@ -85,13 +105,22 @@ server.listen(port, "0.0.0.0", () => {
   setupAppInBackground();
 });
 
-// Handle server errors - be more resilient
+// Handle server errors - be more resilient for deployment
 server.on('error', (error: any) => {
   console.error('Server error:', error);
   // Only exit on critical port binding errors
   if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
+    console.error('❌ Critical server error - exiting');
     process.exit(1);
   }
+  // For all other errors, log but continue (health checks remain functional)
+});
+
+// Add server listening event for better startup tracking
+server.on('listening', () => {
+  const addr = server.address();
+  const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+  console.log(`🚀 Server listening on ${bind}`);
 });
 
 // Background setup function - delayed to not interfere with health checks
@@ -174,21 +203,35 @@ function setupAppInBackground(): void {
       appInitialized = true;
       console.log("✅ App now ready to serve requests!");
 
-      // Database setup (completely independent and fire-and-forget)
+      // Database setup (completely independent, non-blocking, with timeout protection)
       setImmediate(() => {
         Promise.resolve().then(async () => {
           try {
             console.log("🗄️ Initializing database...");
-            const { initializeDatabase } = await import('./scripts/db-init');
-            await initializeDatabase();
             
-            // Initialize topics after database is ready
-            const { initializeTopics } = await import('./services/contentIngestion');
-            await initializeTopics();
+            // Add timeout protection to prevent hanging
+            const dbInitPromise = Promise.race([
+              (async () => {
+                const { initializeDatabase } = await import('./scripts/db-init');
+                await initializeDatabase();
+                
+                // Initialize topics after database is ready
+                const { initializeTopics } = await import('./services/contentIngestion');
+                await initializeTopics();
+              })(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Database initialization timeout')), 30000)
+              )
+            ]);
+            
+            await dbInitPromise;
           } catch (error) {
             console.error("Database initialization failed:", error);
-            // Continue without database - health checks still work
+            // Continue without database - health checks and core app still work
           }
+        }).catch(error => {
+          console.error("Background setup error:", error);
+          // Gracefully handle any background setup failures
         });
       });
 
