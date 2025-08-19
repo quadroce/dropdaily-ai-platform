@@ -56,28 +56,43 @@ app.get("/ready", (req, res) => {
   res.status(200).json(healthResponse);
 });
 
-// DEPLOYMENT CRITICAL: Root endpoint health check - must respond with 200 immediately
+// DEPLOYMENT CRITICAL: HEAD request handler for root endpoint (instant response)
+app.head("/", (req, res) => {
+  res.status(200).end();
+});
+
+// ULTRA-CRITICAL: Root endpoint must respond with 200 immediately for deployment health checks
+// This handler responds INSTANTLY without any dependencies, conditionals, or async operations
 app.get("/", (req, res, next) => {
-  // Priority 1: Health checks from deployment platforms (immediate response)
-  if (req.headers['user-agent']?.toLowerCase().includes('health') ||
-      req.headers['user-agent']?.toLowerCase().includes('check') ||
-      req.headers['accept']?.includes('application/json') ||
-      req.query.health !== undefined) {
+  // DEPLOYMENT CRITICAL: Always respond with 200 first - no conditions, no delays
+  // Deployment platforms need instant 200 response at root endpoint
+  res.status(200);
+  
+  // Check if this is likely a health check request (deployment platforms, load balancers, etc.)
+  const isHealthCheck = req.headers['user-agent']?.toLowerCase().includes('health') ||
+                       req.headers['user-agent']?.toLowerCase().includes('check') ||
+                       req.headers['user-agent']?.toLowerCase().includes('curl') ||
+                       req.headers['user-agent']?.toLowerCase().includes('wget') ||
+                       req.headers['accept']?.includes('application/json') ||
+                       req.query.health !== undefined ||
+                       req.method === 'HEAD';
+  
+  if (isHealthCheck) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).json(healthResponse);
+    return res.json(healthResponse);
   }
   
-  // Priority 2: App not ready, serve minimal page (still 200 status)
+  // For browser requests: serve app if ready, or minimal loading page if not
   if (!appInitialized) {
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).send(`<!DOCTYPE html>
+    return res.send(`<!DOCTYPE html>
 <html><head><title>DropDaily</title><meta http-equiv="refresh" content="2"></head>
 <body><h1>DropDaily</h1><p>Starting up...</p></body></html>`);
   }
   
-  // Priority 3: App ready, continue to normal routing
+  // App is ready, continue to normal routing (Vite/static serving)
   next();
 });
 
