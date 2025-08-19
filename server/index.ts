@@ -1,86 +1,57 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
-import { DeploymentLogger } from './logger.js';
-import { setupFallbackFrontend, updateAppState } from './fallback-frontend.js';
-
-// Initialize comprehensive logging first
-DeploymentLogger.deployment('Server starting', {
-  nodeEnv: process.env.NODE_ENV,
-  port: process.env.PORT,
-  timestamp: new Date().toISOString()
-});
 
 const app = express();
 
-// Global error handlers are now handled by logger.ts
+// Global error handlers for production stability
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  console.error('Application continuing with degraded functionality...');
+});
 
-// ULTRA-CRITICAL: Health check endpoints FIRST - before ANY other middleware
-// These must respond immediately for deployment health checks
-const healthResponse = (req: any, res: any) => {
-  const startTime = Date.now();
-  const userAgent = req.get('User-Agent') || 'unknown';
-  
-  // Log health check requests for debugging
-  DeploymentLogger.health(`Health check: ${req.method} ${req.path}`, Date.now() - startTime);
-  
-  // Add headers for CORS and caching for deployment systems
-  res.writeHead(200, { 
-    'Content-Type': 'text/plain',
-    'Cache-Control': 'no-cache',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-    'X-Health-Check': 'OK',
-    'X-Server-Status': 'ready',
-    'X-Response-Time': (Date.now() - startTime).toString()
-  });
-  res.end("OK");
-};
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Application continuing with degraded functionality...');
+});
 
-app.get("/health", healthResponse);
-app.get("/healthz", healthResponse);
-app.get("/ready", healthResponse);
+// ULTRA-CRITICAL: Health check endpoints for deployment (immediate response, no dependencies)
+app.get("/health", (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.status(200).end("OK");
+});
 
-// Critical: Also handle HEAD requests for health checks
-app.head("/health", healthResponse);
-app.head("/healthz", healthResponse);
-app.head("/ready", healthResponse);
+app.get("/healthz", (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.status(200).end("OK");
+});
 
-// PRIORITY: Catch-all health check middleware before any processing
+app.get("/ready", (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.status(200).end("OK");
+});
+
+// Add immediate response for any health check patterns
 app.use((req, res, next) => {
-  // Emergency health check handler - catches any health check patterns
-  const path = req.path.toLowerCase();
-  const method = req.method.toUpperCase();
-  
-  // Handle all possible health check endpoints
-  if (path === '/health' || path === '/healthz' || path === '/ready' || 
-      path === '/ping' || path === '/status' || path === '/live' || path === '/alive') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    return res.end("OK");
+  // Health check patterns for deployment systems
+  if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).end("OK");
   }
   
-  // Root path health check detection with multiple patterns
-  if (path === '/' && (method === 'GET' || method === 'HEAD')) {
-    const userAgent = (req.get('User-Agent') || '').toLowerCase();
-    const acceptHeader = (req.get('Accept') || '').toLowerCase();
+  // Root path health checks for deployment systems
+  if (req.path === '/' && req.method === 'GET') {
+    const userAgent = req.get('User-Agent') || '';
+    const acceptHeader = req.get('Accept') || '';
     
-    // Comprehensive deployment infrastructure detection
-    const isHealthCheck = 
-      userAgent.includes('deployment') || 
-      userAgent.includes('health') || 
-      userAgent.includes('monitor') ||
-      userAgent.includes('probe') ||
-      userAgent.includes('check') ||
-      userAgent.includes('replit') ||
-      userAgent.includes('pingdom') ||
-      userAgent.includes('uptime') ||
-      acceptHeader.includes('text/plain') ||
-      acceptHeader === '*/*' ||
-      !acceptHeader.includes('text/html');
-      
-    if (isHealthCheck) {
-      DeploymentLogger.deployment(`Root health check from: ${userAgent}`);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end("OK");
+    // Check if this is likely a health check from deployment infrastructure
+    if (userAgent.includes('deployment') || 
+        userAgent.includes('health') || 
+        userAgent.includes('monitor') ||
+        userAgent.includes('probe') ||
+        acceptHeader.includes('text/plain') ||
+        !acceptHeader.includes('text/html')) {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).end("OK");
     }
   }
   
@@ -88,9 +59,6 @@ app.use((req, res, next) => {
 });
 
 
-
-// Setup fallback frontend BEFORE server starts - ensures immediate / responses
-setupFallbackFrontend(app);
 
 // Create server immediately with only health checks
 const server = createServer(app);
@@ -101,45 +69,19 @@ const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
 server.listen(port, "0.0.0.0", () => {
-  DeploymentLogger.deployment('Server listening', { port, host: '0.0.0.0' });
-  console.log("✅ Server started on port", port);
-  console.log("🌐 Server listening on 0.0.0.0:" + port);
-  console.log("🔍 Health checks available at /health, /healthz, /ready");
-  
-  // Log the exact health check URLs for debugging
-  console.log("🔗 Health check URLs:");
-  console.log(`  - http://0.0.0.0:${port}/health`);
-  console.log(`  - http://0.0.0.0:${port}/healthz`);
-  console.log(`  - http://0.0.0.0:${port}/ready`);
-  
+  console.log("✅ Server started, initializing app...");
   // Server is running, start background setup immediately
   setupAppInBackground();
 });
 
 // Handle server errors - be more resilient
 server.on('error', (error: any) => {
-  DeploymentLogger.critical('Server error', error);
+  console.error('Server error:', error);
   // Only exit on critical port binding errors
   if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
-    DeploymentLogger.critical('Port binding failed - exiting');
     process.exit(1);
-  } else {
-    DeploymentLogger.warn('Non-critical server error, continuing', error);
   }
 });
-
-// Health check verification - verify server is responding
-setTimeout(async () => {
-  try {
-    const response = await fetch(`http://localhost:${port}/health`);
-    const status = response.ok ? 'PASS' : 'FAIL';
-    DeploymentLogger.health(`Self-test: ${status}`, response.status);
-    console.log('🔍 Health check self-test:', status);
-  } catch (error: any) {
-    DeploymentLogger.error('Health check self-test FAILED', error);
-    console.error('🔍 Health check self-test FAILED:', error.message);
-  }
-}, 2000);
 
 // Background setup function - delayed to not interfere with health checks
 function setupAppInBackground(): void {
@@ -148,21 +90,15 @@ function setupAppInBackground(): void {
     console.log("🔧 Background setup starting...");
     try {
       // PRIORITY 1: Basic middleware first
-      DeploymentLogger.info("Setting up middleware");
+      console.log("🔧 Setting up middleware...");
       app.use(express.json());
       app.use(express.urlencoded({ extended: false }));
 
-      // Enhanced logging middleware  
+      // Logging middleware  
       app.use((req, res, next) => {
         const start = Date.now();
-        DeploymentLogger.info(`Request: ${req.method} ${req.path}`, { 
-          userAgent: req.get('User-Agent') || 'unknown',
-          ip: req.ip 
-        });
-        
         res.on("finish", () => {
           const duration = Date.now() - start;
-          DeploymentLogger.request(req.method, req.path, res.statusCode, duration, req.get('User-Agent'));
           if (req.path.startsWith("/api") && duration > 100) {
             console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
           }
@@ -171,108 +107,79 @@ function setupAppInBackground(): void {
       });
 
       // PRIORITY 2: Load API routes BEFORE Vite to ensure they work
-      DeploymentLogger.info("Loading API routes");
-      const routeStart = Date.now();
-      
-      // First try to load full routes, fallback to mock if database unavailable
-      try {
-        const { registerRoutes } = await import('./routes');
-        await registerRoutes(app);
-        DeploymentLogger.startup('Full API routes loaded', true, Date.now() - routeStart);
-      } catch (error) {
-        DeploymentLogger.warn('Full routes failed, using mock routes', error);
-        const { setupMockRoutes } = await import('./mock-data');
-        setupMockRoutes(app);
-        DeploymentLogger.startup('Mock API routes loaded', true, Date.now() - routeStart);
-      }
+      console.log("📥 Loading API routes...");
+      const { registerRoutes } = await import('./routes');
+      await registerRoutes(app);
+      console.log("✅ API routes loaded successfully");
 
       // Error handling for API routes
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-        DeploymentLogger.error('API Error', err);
+        console.error('API Error:', err);
         
         // Don't crash on OpenAI quota errors
         if (err.message?.includes('429') || err.message?.includes('quota')) {
-          DeploymentLogger.warn('OpenAI quota exceeded, using fallback');
           return res.status(200).json({ 
             message: "Service temporarily limited due to external API constraints",
             fallback: true
           });
         }
         
-        DeploymentLogger.error('Sending error response', { status: err.status || 500, message: err.message });
         res.status(err.status || 500).json({ 
           message: err.status === 500 ? "Service temporarily unavailable" : err.message || "Internal Server Error" 
         });
       });
 
       // PRIORITY 3: Setup Vite/static serving AFTER routes
-      DeploymentLogger.info("Importing vite module");
-      const viteImportStart = Date.now();
+      console.log("📥 Importing vite module...");
       let viteModule;
       try {
         viteModule = await import('./vite');
-        DeploymentLogger.startup('Vite module imported', true, Date.now() - viteImportStart);
+        console.log("✅ Vite module imported successfully");
       } catch (error) {
-        DeploymentLogger.error("Failed to import vite module", error);
+        console.error("❌ Failed to import vite module:", error);
         // Fallback: serve static files without Vite
         const path = await import('path');
         const staticPath = path.resolve(process.cwd(), 'dist');
         app.use(express.static(staticPath));
-        DeploymentLogger.warn("Using static fallback instead of Vite");
+        console.log("✅ Static fallback setup completed");
         viteModule = null;
       }
       
       // Setup Vite/static serving
-      DeploymentLogger.info("Setting up Vite/Static serving");
-      const viteSetupStart = Date.now();
+      console.log("🎯 Setting up Vite/Static serving...");
       if (process.env.NODE_ENV === "development" && viteModule) {
         await viteModule.setupVite(app, server);
-        DeploymentLogger.startup('Vite setup completed', true, Date.now() - viteSetupStart);
-        updateAppState('vite', true);
+        console.log("✅ Vite setup completed - React app now available");
       } else if (viteModule) {
         viteModule.serveStatic(app);
-        DeploymentLogger.startup('Static serving setup completed', true, Date.now() - viteSetupStart);
-        updateAppState('vite', true);
+        console.log("✅ Static serving setup completed");
       } else {
-        DeploymentLogger.startup('Fallback static serving is active', true, Date.now() - viteSetupStart);
-        updateAppState('vite', false);
+        console.log("✅ Fallback static serving is active");
       }
 
-      DeploymentLogger.startup('Core application setup completed', true);
+      console.log("🎉 Core application setup completed!");
 
       // Database setup (completely independent and fire-and-forget)
       setImmediate(() => {
         Promise.resolve().then(async () => {
-          const dbStart = Date.now();
           try {
-            DeploymentLogger.info("Initializing database");
+            console.log("🗄️ Initializing database...");
             const { initializeDatabase } = await import('./scripts/db-init');
             await initializeDatabase();
-            DeploymentLogger.startup('Database initialized', true, Date.now() - dbStart);
-            updateAppState('database', true);
             
             // Initialize topics after database is ready
-            const topicsStart = Date.now();
             const { initializeTopics } = await import('./services/contentIngestion');
             await initializeTopics();
-            DeploymentLogger.startup('Topics initialized', true, Date.now() - topicsStart);
-            
-            DeploymentLogger.deployment('Full application ready', { 
-              totalTime: Date.now() - dbStart,
-              status: 'success'
-            });
           } catch (error) {
-            DeploymentLogger.error("Database initialization failed", error);
-            updateAppState('database', false);
-            DeploymentLogger.warn("Continuing without database - health checks still work");
+            console.error("Database initialization failed:", error);
+            // Continue without database - health checks still work
           }
         });
       });
 
     } catch (error) {
-      DeploymentLogger.critical("Setup error", error);
-      DeploymentLogger.dumpState();
-      DeploymentLogger.warn("Application continues with basic health check functionality");
+      console.error("Setup error:", error);
+      // Application continues with basic health check functionality
     }
   });
 }
