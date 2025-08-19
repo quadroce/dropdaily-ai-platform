@@ -35,82 +35,65 @@ process.on('SIGTERM', () => {
 });
 
 // ULTRA-CRITICAL: Dedicated health check endpoints for deployment (immediate response, no dependencies)
-// These endpoints MUST respond within 2 seconds for deployment success
+// These endpoints MUST respond within 1 second for deployment success
+const healthResponse = { status: 'healthy', timestamp: Date.now(), server: 'running' };
+
 app.get("/health", (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
+  res.status(200).json(healthResponse);
 });
 
 app.get("/healthz", (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
+  res.status(200).json(healthResponse);
 });
 
 app.get("/ready", (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
+  res.status(200).json(healthResponse);
 });
 
 // DEPLOYMENT CRITICAL: Root endpoint health check - must respond with 200 immediately
 app.get("/", (req, res, next) => {
-  // For deployment health checks, return JSON status immediately
-  if (req.headers['user-agent']?.includes('health') || 
+  // Priority 1: Health checks from deployment platforms (immediate response)
+  if (req.headers['user-agent']?.toLowerCase().includes('health') ||
+      req.headers['user-agent']?.toLowerCase().includes('check') ||
       req.headers['accept']?.includes('application/json') ||
       req.query.health !== undefined) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
+    return res.status(200).json(healthResponse);
   }
   
-  // If app is not fully initialized, serve a minimal loading page
+  // Priority 2: App not ready, serve minimal page (still 200 status)
   if (!appInitialized) {
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'no-cache');
     return res.status(200).send(`<!DOCTYPE html>
-<html><head><title>DropDaily</title><meta http-equiv="refresh" content="3"></head>
-<body><h1>DropDaily</h1><p>Loading...</p><script>setTimeout(()=>location.reload(),3000);</script></body></html>`);
+<html><head><title>DropDaily</title><meta http-equiv="refresh" content="2"></head>
+<body><h1>DropDaily</h1><p>Starting up...</p></body></html>`);
   }
-  // If fully initialized, continue to normal routing
+  
+  // Priority 3: App ready, continue to normal routing
   next();
 });
 
 // Global state to track if app is fully initialized
 let appInitialized = false;
 
-// DEPLOYMENT CRITICAL: Health check middleware with highest priority
-app.use((req, res, next) => {
-  // Health check endpoints get absolute priority - no dependencies, no delays
-  if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
-  }
-  
-  // Also handle root path health checks (some deployment platforms check /)
-  if (req.path === '/' && (req.headers['user-agent']?.includes('health') || 
-      req.headers['accept']?.includes('application/json') ||
-      req.query.health !== undefined)) {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
-  }
-  
-  // Continue to normal routing for all other requests
-  next();
-});
 
 
 
 // Create server immediately with only health checks
 const server = createServer(app);
 
-// Server configuration for deployment optimization
-server.timeout = 30000; // 30 second timeout
-server.keepAliveTimeout = 65000; // Keep alive longer than timeout
-server.headersTimeout = 66000; // Headers timeout slightly longer
+// Server configuration optimized for fast health check responses
+server.timeout = 10000; // 10 second timeout for faster health checks
+server.keepAliveTimeout = 15000; // Shorter keep alive
+server.headersTimeout = 12000; // Shorter headers timeout
 
 
 
@@ -151,7 +134,7 @@ function setupAppInBackground(): void {
     const setupTimeout = setTimeout(() => {
       console.warn("⚠️ Background setup timeout - app will continue with basic functionality");
       appInitialized = true; // Allow app to continue even if setup times out
-    }, 45000); // 45 second timeout
+    }, 20000); // 20 second timeout for faster deployment
     
     try {
       // PRIORITY 1: Basic middleware first
@@ -246,7 +229,7 @@ function setupAppInBackground(): void {
                 await initializeTopics();
               })(),
               new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database initialization timeout')), 30000)
+                setTimeout(() => reject(new Error('Database initialization timeout')), 15000)
               )
             ]);
             
