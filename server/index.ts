@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { DeploymentLogger } from './logger.js';
-import { setupFallbackFrontend } from './fallback-frontend.js';
+import { setupFallbackFrontend, updateAppState } from './fallback-frontend.js';
 
 // Initialize comprehensive logging first
 DeploymentLogger.deployment('Server starting', {
@@ -173,9 +173,18 @@ function setupAppInBackground(): void {
       // PRIORITY 2: Load API routes BEFORE Vite to ensure they work
       DeploymentLogger.info("Loading API routes");
       const routeStart = Date.now();
-      const { registerRoutes } = await import('./routes');
-      await registerRoutes(app);
-      DeploymentLogger.startup('API routes loaded', true, Date.now() - routeStart);
+      
+      // First try to load full routes, fallback to mock if database unavailable
+      try {
+        const { registerRoutes } = await import('./routes');
+        await registerRoutes(app);
+        DeploymentLogger.startup('Full API routes loaded', true, Date.now() - routeStart);
+      } catch (error) {
+        DeploymentLogger.warn('Full routes failed, using mock routes', error);
+        const { setupMockRoutes } = await import('./mock-data');
+        setupMockRoutes(app);
+        DeploymentLogger.startup('Mock API routes loaded', true, Date.now() - routeStart);
+      }
 
       // Error handling for API routes
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -219,11 +228,14 @@ function setupAppInBackground(): void {
       if (process.env.NODE_ENV === "development" && viteModule) {
         await viteModule.setupVite(app, server);
         DeploymentLogger.startup('Vite setup completed', true, Date.now() - viteSetupStart);
+        updateAppState('vite', true);
       } else if (viteModule) {
         viteModule.serveStatic(app);
         DeploymentLogger.startup('Static serving setup completed', true, Date.now() - viteSetupStart);
+        updateAppState('vite', true);
       } else {
         DeploymentLogger.startup('Fallback static serving is active', true, Date.now() - viteSetupStart);
+        updateAppState('vite', false);
       }
 
       DeploymentLogger.startup('Core application setup completed', true);
@@ -237,6 +249,7 @@ function setupAppInBackground(): void {
             const { initializeDatabase } = await import('./scripts/db-init');
             await initializeDatabase();
             DeploymentLogger.startup('Database initialized', true, Date.now() - dbStart);
+            updateAppState('database', true);
             
             // Initialize topics after database is ready
             const topicsStart = Date.now();
@@ -250,6 +263,7 @@ function setupAppInBackground(): void {
             });
           } catch (error) {
             DeploymentLogger.error("Database initialization failed", error);
+            updateAppState('database', false);
             DeploymentLogger.warn("Continuing without database - health checks still work");
           }
         });
