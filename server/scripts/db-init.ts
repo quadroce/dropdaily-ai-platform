@@ -11,10 +11,35 @@ export async function initializeDatabase(): Promise<void> {
   console.log('🗄️ Initializing database...');
   
   try {
-    // Check database connection
+    // Check database connection with timeout
     console.log('📡 Testing database connection...');
-    await db.execute(sql`SELECT 1`);
-    console.log('✅ Database connection successful');
+    
+    // Add timeout and retry logic
+    const maxRetries = 3;
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await Promise.race([
+          db.execute(sql`SELECT 1`),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database connection timeout')), 5000)
+          )
+        ]);
+        console.log('✅ Database connection successful');
+        break;
+      } catch (error) {
+        lastError = error;
+        console.log(`📡 Database connection attempt ${attempt}/${maxRetries} failed:`, (error as Error).message);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
     
     // Check if tables exist
     const tablesResult = await db.execute(sql`
@@ -23,7 +48,7 @@ export async function initializeDatabase(): Promise<void> {
       WHERE table_schema = 'public'
     `);
     
-    const existingTables = tablesResult.rows.map(row => row.table_name);
+    const existingTables = (tablesResult as any).map((row: any) => row.table_name);
     const requiredTables = [
       'users', 'topics', 'content', 'user_preferences', 
       'daily_drops', 'content_topics', 'user_submissions',
@@ -58,7 +83,7 @@ export async function initializeDatabase(): Promise<void> {
       WHERE table_schema = 'public'
     `);
     
-    const finalTables = finalTablesResult.rows.map(row => row.table_name);
+    const finalTables = (finalTablesResult as any).map((row: any) => row.table_name);
     const stillMissing = requiredTables.filter(table => !finalTables.includes(table));
     
     if (stillMissing.length > 0) {

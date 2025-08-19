@@ -3,6 +3,15 @@ import { createServer } from "http";
 
 const app = express();
 
+// Fix DATABASE_URL if using Replit PostgreSQL environment variables
+if (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE) {
+  const newDatabaseUrl = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}?sslmode=require`;
+  if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes(process.env.PGHOST)) {
+    console.log("🔧 Updating DATABASE_URL to use Replit PostgreSQL with SSL");
+    process.env.DATABASE_URL = newDatabaseUrl;
+  }
+}
+
 // Global error handlers for production stability
 process.on('uncaughtException', (error) => {
   console.error('💥 Uncaught Exception:', error);
@@ -30,26 +39,23 @@ app.get("/ready", (req, res) => {
   res.status(200).end("OK");
 });
 
-// Add immediate response for any health check patterns
+// Add immediate response for health check endpoints only
 app.use((req, res, next) => {
-  // Health check patterns for deployment systems
+  // Dedicated health check endpoints
   if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
     res.setHeader('Content-Type', 'text/plain');
     return res.status(200).end("OK");
   }
   
-  // Root path health checks for deployment systems
+  // Root path health checks ONLY for specific deployment user agents
   if (req.path === '/' && req.method === 'GET') {
     const userAgent = req.get('User-Agent') || '';
-    const acceptHeader = req.get('Accept') || '';
     
-    // Check if this is likely a health check from deployment infrastructure
-    if (userAgent.includes('deployment') || 
-        userAgent.includes('health') || 
-        userAgent.includes('monitor') ||
-        userAgent.includes('probe') ||
-        acceptHeader.includes('text/plain') ||
-        !acceptHeader.includes('text/html')) {
+    // Only respond to specific deployment probes, not browsers
+    if (userAgent.includes('deployment-probe') || 
+        userAgent.includes('health-check') || 
+        userAgent.includes('replit-deployment') ||
+        userAgent.includes('load-balancer')) {
       res.setHeader('Content-Type', 'text/plain');
       return res.status(200).end("OK");
     }
