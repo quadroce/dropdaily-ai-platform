@@ -37,32 +37,32 @@ process.on('SIGTERM', () => {
 // ULTRA-CRITICAL: Dedicated health check endpoints for deployment (immediate response, no dependencies)
 // These endpoints MUST respond within 2 seconds for deployment success
 app.get("/health", (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).end("OK");
+  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
 });
 
 app.get("/healthz", (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).end("OK");
+  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
 });
 
 app.get("/ready", (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).end("OK");
+  res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
 });
 
 // DEPLOYMENT CRITICAL: Root endpoint health check - must respond with 200 immediately
 app.get("/", (req, res, next) => {
-  // For deployment health checks, return simple OK status immediately
+  // For deployment health checks, return JSON status immediately
   if (req.headers['user-agent']?.includes('health') || 
-      req.headers['accept']?.includes('text/plain') ||
+      req.headers['accept']?.includes('application/json') ||
       req.query.health !== undefined) {
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).end("OK");
+    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
   }
   
   // If app is not fully initialized, serve a minimal loading page
@@ -84,18 +84,18 @@ let appInitialized = false;
 app.use((req, res, next) => {
   // Health check endpoints get absolute priority - no dependencies, no delays
   if (req.path === '/health' || req.path === '/healthz' || req.path === '/ready') {
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).end("OK");
+    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
   }
   
   // Also handle root path health checks (some deployment platforms check /)
   if (req.path === '/' && (req.headers['user-agent']?.includes('health') || 
-      req.headers['accept']?.includes('text/plain') ||
+      req.headers['accept']?.includes('application/json') ||
       req.query.health !== undefined)) {
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).end("OK");
+    return res.status(200).json({ status: 'healthy', timestamp: Date.now(), server: 'running' });
   }
   
   // Continue to normal routing for all other requests
