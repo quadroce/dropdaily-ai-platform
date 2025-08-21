@@ -169,11 +169,10 @@ export class Classifier {
       });
 
       return response.data[0].embedding;
-    } catch (error) {
-      // If OpenAI fails, use deterministic fallback
-      console.log('🔄 Using fallback embedding generation due to OpenAI error');
-      const { generateFallbackEmbedding } = await import('./openai-disabled');
-      return generateFallbackEmbedding(text);
+    } catch (err: any) {
+  const status = err?.status ?? err?.response?.status;
+  const body   = err?.response?.data ?? err?.message;
+  console.error("[OpenAI embeddings] failed", { status, body });
     }
   }
 

@@ -172,15 +172,15 @@ export class DatabaseStorage implements IStorage {
         topic: topics
       })
       .from(userPreferences)
-      .innerJoin(topics, eq(userPreferences.topicId, topics.id))
-      .where(eq(userPreferences.userId, userId));
+      .innerJoin(topics, eq(userPreferences.topicId, sql`${topics.id}::uuid`))
+      .where(eq(userPreferences.userId, sql`${userId}::uuid`));
     
     return result;
   }
 
   async setUserPreferences(userId: string, topicIds: string[]): Promise<void> {
     // Remove existing preferences
-    await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+    await db.delete(userPreferences).where(eq(userPreferences.userId, sql`${userId}::uuid`));
     
     // Add new preferences
     if (topicIds.length > 0) {
@@ -216,8 +216,8 @@ export class DatabaseStorage implements IStorage {
             confidence: contentTopics.confidence
           })
           .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, topics.id))
-          .where(eq(contentTopics.contentId, c.id));
+          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
+          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
 
         return {
           ...c,
@@ -243,8 +243,8 @@ export class DatabaseStorage implements IStorage {
         confidence: contentTopics.confidence
       })
       .from(contentTopics)
-      .innerJoin(topics, eq(contentTopics.topicId, topics.id))
-      .where(eq(contentTopics.contentId, id));
+      .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
+      .where(eq(contentTopics.contentId, sql`${id}::uuid`));
 
     return {
       ...contentResult[0],
@@ -295,8 +295,8 @@ export class DatabaseStorage implements IStorage {
             confidence: contentTopics.confidence
           })
           .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, topics.id))
-          .where(eq(contentTopics.contentId, c.id));
+          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
+          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
 
         return {
           ...c,
@@ -310,7 +310,7 @@ export class DatabaseStorage implements IStorage {
 
   async setContentTopics(contentId: string, topicIds: string[], confidences: number[]): Promise<void> {
     // Remove existing topic associations
-    await db.delete(contentTopics).where(eq(contentTopics.contentId, contentId));
+    await db.delete(contentTopics).where(eq(contentTopics.contentId, sql`${contentId}::uuid`));
     
     // Add new associations
     if (topicIds.length > 0) {
@@ -329,7 +329,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(userSubmissions)
-      .where(eq(userSubmissions.userId, userId))
+      .where(eq(userSubmissions.userId, sql`${userId}::uuid`))
       .orderBy(desc(userSubmissions.createdAt));
   }
 
@@ -356,7 +356,7 @@ export class DatabaseStorage implements IStorage {
         }
       })
       .from(userSubmissions)
-      .innerJoin(users, eq(userSubmissions.userId, users.id));
+      .innerJoin(users, eq(userSubmissions.userId, sql`${users.id}::uuid`));
 
     if (status) {
       query.where(eq(userSubmissions.status, status as any));
@@ -406,8 +406,8 @@ export class DatabaseStorage implements IStorage {
         content: content
       })
       .from(dailyDrops)
-      .innerJoin(content, eq(dailyDrops.contentId, content.id))
-      .where(eq(dailyDrops.userId, userId));
+      .innerJoin(content, eq(dailyDrops.contentId, sql`${content.id}::uuid`))
+      .where(eq(dailyDrops.userId, sql`${userId}::uuid`));
 
     if (date) {
       const startDate = new Date(date);
@@ -428,10 +428,10 @@ export class DatabaseStorage implements IStorage {
           content: content
         })
         .from(dailyDrops)
-        .innerJoin(content, eq(dailyDrops.contentId, content.id))
+        .innerJoin(content, eq(dailyDrops.contentId, sql`${content.id}::uuid`))
         .where(
           and(
-            eq(dailyDrops.userId, userId),
+            eq(dailyDrops.userId, sql`${userId}::uuid`),
             sql`${dailyDrops.dropDate} >= ${startDate}`,
             sql`${dailyDrops.dropDate} < ${endDate}`
           )
@@ -453,8 +453,8 @@ export class DatabaseStorage implements IStorage {
             confidence: contentTopics.confidence
           })
           .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, topics.id))
-          .where(eq(contentTopics.contentId, drop.content.id));
+          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
+          .where(eq(contentTopics.contentId, sql`${drop.content.id}::uuid`));
 
         return {
           ...drop,
@@ -481,8 +481,8 @@ export class DatabaseStorage implements IStorage {
       .set({ wasViewed: true })
       .where(
         and(
-          eq(dailyDrops.userId, userId),
-          eq(dailyDrops.contentId, contentId)
+          eq(dailyDrops.userId, sql`${userId}::uuid`),
+          eq(dailyDrops.contentId, sql`${contentId}::uuid`)
         )
       );
   }
@@ -492,8 +492,8 @@ export class DatabaseStorage implements IStorage {
       .from(dailyDrops)
       .where(
         and(
-          eq(dailyDrops.userId, userId),
-          eq(dailyDrops.contentId, contentId)
+          eq(dailyDrops.userId, sql`${userId}::uuid`),
+          eq(dailyDrops.contentId, sql`${contentId}::uuid`)
         )
       )
       .limit(1);
@@ -503,8 +503,8 @@ export class DatabaseStorage implements IStorage {
         .set({ wasBookmarked: !existing[0].wasBookmarked })
         .where(
           and(
-            eq(dailyDrops.userId, userId),
-            eq(dailyDrops.contentId, contentId)
+            eq(dailyDrops.userId, sql`${userId}::uuid`),
+            eq(dailyDrops.contentId, sql`${contentId}::uuid`)
           )
         );
     }
@@ -513,7 +513,7 @@ export class DatabaseStorage implements IStorage {
   async getUserProfileVector(userId: string): Promise<string | undefined> {
     const result = await db.select()
       .from(userProfileVectors)
-      .where(eq(userProfileVectors.userId, userId))
+      .where(eq(userProfileVectors.userId, sql`${userId}::uuid`))
       .limit(1);
     return result[0]?.embedding;
   }
@@ -521,13 +521,13 @@ export class DatabaseStorage implements IStorage {
   async setUserProfileVector(userId: string, embedding: string): Promise<void> {
     const existing = await db.select()
       .from(userProfileVectors)
-      .where(eq(userProfileVectors.userId, userId))
+      .where(eq(userProfileVectors.userId, sql`${userId}::uuid`))
       .limit(1);
 
     if (existing[0]) {
       await db.update(userProfileVectors)
         .set({ embedding, updatedAt: new Date() })
-        .where(eq(userProfileVectors.userId, userId));
+        .where(eq(userProfileVectors.userId, sql`${userId}::uuid`));
     } else {
       await db.insert(userProfileVectors).values({
         id: randomUUID(),
@@ -576,8 +576,8 @@ export class DatabaseStorage implements IStorage {
             confidence: contentTopics.confidence
           })
           .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, topics.id))
-          .where(eq(contentTopics.contentId, c.id));
+          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
+          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
 
         return {
           ...c,

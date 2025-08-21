@@ -8,7 +8,7 @@ import {
   topics,
   InsertDailyDrop 
 } from "@shared/schema";
-import { and, or, eq, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, notInArray } from "drizzle-orm";
 import { emailService } from "./email";
 
 export interface UserContentMatch {
@@ -172,7 +172,7 @@ export class DailyDropService {
         })
         .from(userPreferences)
         .innerJoin(topics, eq(userPreferences.topicId, sql`${topics.id}::uuid`))
-        .where(eq(userPreferences.userId, sql`${userId}::uuid`));
+        .where(eq(userPreferences.userId, userId));
       
       console.log(`🔍 getUserTopicPreferences for ${userId}: found ${result.length} preferences`);
       return result;
@@ -195,8 +195,8 @@ export class DailyDropService {
       })
       .from(dailyDrops)
       .where(and(
-        eq(dailyDrops.userId, sql`${userId}::uuid`),
-        sql`${dailyDrops.dropDate} > ${cutoffDate.toISOString().slice(0,10)}::date`
+        eq(dailyDrops.userId, userId),
+        sql`${dailyDrops.dropDate} > ${cutoffDate}`
       ));
   }
 
@@ -213,14 +213,10 @@ export class DailyDropService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7);
 
- let whereConditions = and(
-  sql`${content.createdAt}::timestamptz > ${cutoffDate.toISOString()}::timestamptz`,
-  or(
-    eq(content.status, 'approved'),
-    sql`${content.status} is null`
-  )
-);
-
+    let whereConditions = and(
+      sql`${content.createdAt} > ${cutoffDate}`,
+      eq(content.status, 'approved')
+    );
 
     // Exclude already sent content
     if (excludeContentIds.length > 0) {
@@ -392,7 +388,7 @@ export class DailyDropService {
         sentAt: new Date(),
       })
       .where(and(
-        eq(dailyDrops.userId, sql`${userId}::uuid`),
+        eq(dailyDrops.userId, userId),
         sql`${dailyDrops.contentId} = ANY(${contentIds})`
       ));
   }
@@ -413,20 +409,20 @@ export class DailyDropService {
       // Total drops today
       db.select({ count: sql`count(*)` })
         .from(dailyDrops)
-        .where(sql`${dailyDrops.dropDate} >= ${today.toISOString().slice(0,10)}::date`),
+        .where(sql`${dailyDrops.dropDate} >= ${today}`),
       
       // Emails sent today
       db.select({ count: sql`count(*)` })
         .from(dailyDrops)
         .where(and(
-          sql`${dailyDrops.dropDate} >= ${today.toISOString().slice(0,10)}::date`,
+          sql`${dailyDrops.dropDate} >= ${today}`,
           eq(dailyDrops.emailSent, true)
         )),
       
       // Average match score
       db.select({ avg: sql`avg(${dailyDrops.matchScore})` })
         .from(dailyDrops)
-        .where(sql`${dailyDrops.dropDate} >= ${today.toISOString().slice(0,10)}::date`),
+        .where(sql`${dailyDrops.dropDate} >= ${today}`),
       
       // Top sources
       db.select({
@@ -435,7 +431,7 @@ export class DailyDropService {
       })
         .from(dailyDrops)
         .innerJoin(content, eq(dailyDrops.contentId, sql`${content.id}::uuid`))
-        .where(sql`${dailyDrops.dropDate} >= ${today.toISOString().slice(0,10)}::date`)
+        .where(sql`${dailyDrops.dropDate} >= ${today}`)
         .groupBy(content.source)
         .orderBy(sql`count(*) DESC`)
         .limit(5)

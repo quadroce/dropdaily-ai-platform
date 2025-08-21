@@ -1,9 +1,21 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
-});
+// Prende la chiave dall'ambiente (.env o variabili di sistema) e fallisce subito se manca.
+// Evita fallback silenziosi che degradano la classificazione.
+const apiKey =
+  process.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY_ENV_VAR;
+
+if (!apiKey || apiKey === "default_key") {
+  throw new Error(
+    "[Config] OPENAI_API_KEY is missing or invalid. Set it in your environment or .env file."
+  );
+}
+
+// Istanza unica del client OpenAI per tutta l'app
+export const openai = new OpenAI({ apiKey });
+
+// Compatibile con import default esistenti: `import openai from "../services/openai"`
+export default openai;
 
 export interface ContentClassification {
   topics: Array<{
