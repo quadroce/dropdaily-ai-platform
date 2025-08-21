@@ -21,6 +21,7 @@ const client = postgres(process.env.DATABASE_URL!, {
   onnotice: () => {}, // Suppress notices for cleaner logs
   connect_timeout: 60, // 60 second timeout for connection
   idle_timeout: 60,
+  ssl: "require",
 });
 const db = drizzle(client);
 
