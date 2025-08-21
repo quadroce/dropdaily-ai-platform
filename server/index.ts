@@ -1,4 +1,10 @@
 import "./bootstrap-ipv4"; // deve essere PRIMA di qualunque import che inizializzi il DB
+import dns from "dns/promises";
+const host = new URL(process.env.DATABASE_URL!).hostname;
+const all = await dns.lookup(host, { all: true });
+console.log("[DNS] lookup", host, "=>", all);
+// Deve mostrare anche un indirizzo IPv4 (A). Se vedi solo AAAA, usiamo resolve4 come sopra.
+
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
