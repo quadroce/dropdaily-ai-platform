@@ -1,11 +1,16 @@
-// server/bootstrap-net.ts
+// server/bootstrap-ipv4.ts
 import dns from "dns";
 import net from "net";
 
-// 1) Preferisci IPv4 nei resolve
+// Preferisci IPv4 (evita AAAA/IPv6)
 dns.setDefaultResultOrder("ipv4first");
 
-// 2) Happy Eyeballs: se arriva IPv6 non raggiungibile, fallback veloce a IPv4
-// (richiede Node >= 18.13/20.x)
-net.setDefaultAutoSelectFamily(true);
-net.setDefaultAutoSelectFamilyAttemptTimeout(100);
+// Happy Eyeballs: fallback automatico a IPv4 se IPv6 non è raggiungibile (Node 20.11+)
+try {
+  // @ts-ignore
+  net.setDefaultAutoSelectFamily?.(true);
+  // @ts-ignore
+  net.setDefaultAutoSelectFamilyAttemptTimeout?.(100);
+} catch {
+  // ok se non supportato dalla tua versione di Node
+}

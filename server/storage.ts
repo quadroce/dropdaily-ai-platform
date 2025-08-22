@@ -1,11 +1,11 @@
+// server/storage.ts
 import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { eq, and, desc, sql, inArray, or, like } from "drizzle-orm";
+import { eq, and, desc, sql, or, like } from "drizzle-orm";
 import type { 
   User, InsertUser, Topic, InsertTopic, Content, InsertContent, 
-  UserSubmission, InsertUserSubmission, UserPreference, InsertUserPreference,
-  DailyDrop, InsertDailyDrop, ContentWithTopics, UserSubmissionWithUser,
-  DailyDropWithContent, PasswordResetToken, InsertPasswordResetToken
+  UserSubmission, InsertUserSubmission, UserPreference,
+  DailyDrop, ContentWithTopics, UserSubmissionWithUser,
+  DailyDropWithContent, PasswordResetToken
 } from "@shared/schema";
 import { 
   users, topics, content, userSubmissions, userPreferences, 
@@ -13,126 +13,312 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required");
+// ♻️ Riusa il client Postgres unico (IPv4-forced) definito in server/db.ts
+import { pool as client } from "./db";
+
+export const db = drizzle(client);
+
+// -----------------------------
+// Helpers
+// -----------------------------
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
 
-const client = postgres(process.env.DATABASE_URL!, {
-  onnotice: () => {}, // Suppress notices for cleaner logs
-  connect_timeout: 60, // 60 second timeout for connection
-  idle_timeout: 60,
-  ssl: "require",
-});
-const db = drizzle(client);
-
-export interface IStorage {
-  // User management
-  getUser(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
-  
-  // Password reset
-  createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
-  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
-  markTokenAsUsed(token: string): Promise<void>;
-  cleanupExpiredTokens(): Promise<void>;
-
-  // Topics
-  getAllTopics(): Promise<Topic[]>;
-  createTopic(topic: InsertTopic): Promise<Topic>;
-  getTopicsByIds(ids: string[]): Promise<Topic[]>;
-
-  // User preferences
-  getUserPreferences(userId: string): Promise<(UserPreference & { topic: Topic })[]>;
-  setUserPreferences(userId: string, topicIds: string[]): Promise<void>;
-
-  // Content management
-  getAllContent(limit?: number, offset?: number): Promise<ContentWithTopics[]>;
-  getContentById(id: string): Promise<ContentWithTopics | undefined>;
-  createContent(contentData: InsertContent): Promise<Content>;
-  updateContent(id: string, updates: Partial<Content>): Promise<Content | undefined>;
-  searchContent(query: string): Promise<ContentWithTopics[]>;
-
-  // Content topics
-  setContentTopics(contentId: string, topicIds: string[], confidences: number[]): Promise<void>;
-
-  // User submissions
-  getUserSubmissions(userId: string): Promise<UserSubmission[]>;
-  getAllSubmissions(status?: string): Promise<UserSubmissionWithUser[]>;
-  createUserSubmission(submission: InsertUserSubmission): Promise<UserSubmission>;
-  updateSubmissionStatus(id: string, status: string, moderatedBy?: string, notes?: string): Promise<UserSubmission | undefined>;
-
-  // Daily drops
-  getUserDailyDrops(userId: string, date?: string): Promise<DailyDropWithContent[]>;
-  createDailyDrop(drop: InsertDailyDrop): Promise<DailyDrop>;
-  markDropAsViewed(userId: string, contentId: string): Promise<void>;
-  toggleBookmark(userId: string, contentId: string): Promise<void>;
-
-  // Vector operations
-  getUserProfileVector(userId: string): Promise<string | undefined>;
-  setUserProfileVector(userId: string, embedding: string): Promise<void>;
-  findSimilarContent(embedding: string, limit: number, excludeIds?: string[]): Promise<ContentWithTopics[]>;
-
-  // Analytics
-  getSystemStats(): Promise<{
-    totalContent: number;
-    pendingSubmissions: number;
-    activeUsers: number;
-    dailyMatches: number;
-  }>;
+async function fetchTopicsForContent(contentId: string) {
+  const rows = await db
+    .select({
+      id: topics.id,
+      name: topics.name,
+      description: topics.description,
+      embedding: topics.embedding,
+      confidence: contentTopics.confidence,
+      createdAt: topics.createdAt,
+    })
+    .from(contentTopics)
+    .innerJoin(topics, eq(contentTopics.topicId, topics.id))
+    .where(eq(contentTopics.contentId, contentId));
+  return rows;
 }
 
-export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return result[0];
+// -----------------------------
+// Storage implementation
+// -----------------------------
+export class DatabaseStorage {
+
+  // ===== Users =====
+  async createUser(data: InsertUser): Promise<User> {
+    const [row] = await db.insert(users).values({
+      ...data,
+      email: normalizeEmail(data.email),
+    }).returning();
+    return row;
   }
 
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    return result[0];
+  async getUserByEmail(email: string): Promise<User | null> {
+    const [row] = await db.select().from(users)
+      .where(eq(users.email, normalizeEmail(email)))
+      .limit(1);
+    return row ?? null;
   }
 
-  async createUser(user: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const newUser = { ...user, id };
-    await db.insert(users).values(newUser);
-    return newUser as User;
-  }
-
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const result = await db.update(users)
-      .set({ ...updates, updatedAt: new Date() })
+  async updateUser(id: string, patch: Partial<User>): Promise<User | null> {
+    if (patch.email) patch.email = normalizeEmail(patch.email);
+    const [row] = await db.update(users)
+      .set({ ...patch, updatedAt: sql`now()` })
       .where(eq(users.id, id))
       .returning();
-    return result[0];
+    return row ?? null;
   }
 
-  // Password reset methods
-  async createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
-    const id = randomUUID();
-    const resetToken = {
-      id,
-      email,
-      token,
-      expiresAt,
-      used: false,
-      createdAt: new Date()
-    };
-    await db.insert(passwordResetTokens).values(resetToken);
-    return resetToken as PasswordResetToken;
+  // ===== User preferences (topics) =====
+  async getUserPreferences(userId: string): Promise<Array<UserPreference & { topic: Topic }>> {
+    const rows = await db
+      .select({
+        id: userPreferences.id,
+        userId: userPreferences.userId,
+        topicId: userPreferences.topicId,
+        weight: userPreferences.weight,
+        createdAt: userPreferences.createdAt,
+        topic: {
+          id: topics.id,
+          name: topics.name,
+          description: topics.description,
+          embedding: topics.embedding,
+          createdAt: topics.createdAt,
+        }
+      })
+      .from(userPreferences)
+      .innerJoin(topics, eq(userPreferences.topicId, topics.id))
+      .where(eq(userPreferences.userId, userId))
+      .orderBy(desc(userPreferences.createdAt));
+    return rows;
   }
 
-  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
-    const result = await db.select()
-      .from(passwordResetTokens)
-      .where(and(
-        eq(passwordResetTokens.token, token),
-        eq(passwordResetTokens.used, false)
-      ))
+  async setUserPreferences(userId: string, prefs: Array<{ topicId: string; weight: number }>): Promise<void> {
+    // Replace semplice
+    await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+    if (!prefs?.length) return;
+    await db.insert(userPreferences).values(
+      prefs.map(p => ({
+        id: randomUUID(),
+        userId,
+        topicId: p.topicId,
+        weight: p.weight,
+      }))
+    );
+  }
+
+  // ===== Profile vector =====
+  async getUserProfileVector(userId: string): Promise<{ embedding: string } | null> {
+    const [row] = await db.select().from(userProfileVectors)
+      .where(eq(userProfileVectors.userId, userId)).limit(1);
+    return row ? { embedding: row.embedding } : null;
+  }
+
+  async setUserProfileVector(userId: string, embedding: number[] | string): Promise<void> {
+    const payload = Array.isArray(embedding) ? JSON.stringify(embedding) : embedding;
+    const exists = await db.select({ id: userProfileVectors.id })
+      .from(userProfileVectors)
+      .where(eq(userProfileVectors.userId, userId))
       .limit(1);
-    return result[0];
+    if (exists.length) {
+      await db.update(userProfileVectors)
+        .set({ embedding: payload, updatedAt: sql`now()` })
+        .where(eq(userProfileVectors.userId, userId));
+    } else {
+      await db.insert(userProfileVectors).values({
+        id: randomUUID(),
+        userId,
+        embedding: payload,
+      });
+    }
+  }
+
+  // ===== Topics =====
+  async createTopic(data: InsertTopic): Promise<Topic> {
+    const [row] = await db.insert(topics).values(data).returning();
+    return row;
+  }
+
+  async getAllTopics(): Promise<Topic[]> {
+    return await db.select().from(topics).orderBy(topics.name);
+  }
+
+  // ===== Content =====
+  async createContent(data: InsertContent): Promise<Content> {
+    const [row] = await db.insert(content).values(data).returning();
+    return row;
+  }
+
+  async getContentById(id: string): Promise<ContentWithTopics | null> {
+    const [c] = await db.select().from(content).where(eq(content.id, id)).limit(1);
+    if (!c) return null;
+    const t = await fetchTopicsForContent(c.id);
+    return { ...(c as Content), topics: t as any };
+  }
+
+  async getAllContent(limit = 200): Promise<ContentWithTopics[]> {
+    const rows = await db.select().from(content).orderBy(desc(content.createdAt)).limit(limit);
+    const result: ContentWithTopics[] = [];
+    for (const c of rows) {
+      const t = await fetchTopicsForContent(c.id);
+      result.push({ ...(c as Content), topics: t as any });
+    }
+    return result;
+  }
+
+  async searchContent(q: string, limit = 50): Promise<ContentWithTopics[]> {
+    const term = `%${q}%`;
+    const rows = await db.select().from(content)
+      .where(or(like(content.title, term), like(content.description, term)))
+      .orderBy(desc(content.createdAt))
+      .limit(limit);
+    const out: ContentWithTopics[] = [];
+    for (const c of rows) {
+      const t = await fetchTopicsForContent(c.id);
+      out.push({ ...(c as Content), topics: t as any });
+    }
+    return out;
+  }
+
+  async setContentTopics(contentId: string, items: Array<{ topicId: string; confidence: number }>): Promise<void> {
+    await db.delete(contentTopics).where(eq(contentTopics.contentId, contentId));
+    if (!items?.length) return;
+    await db.insert(contentTopics).values(
+      items.map(i => ({
+        id: randomUUID(),
+        contentId,
+        topicId: i.topicId,
+        confidence: i.confidence ?? 0.5,
+      }))
+    );
+  }
+
+  async findSimilarContent(sourceUrl: string, guid?: string, title?: string): Promise<Content[]> {
+    // 1) Match esatto per URL o GUID
+    const matches = await db.select().from(content)
+      .where(or(eq(content.url, sourceUrl), guid ? eq(content.guid, guid) : sql`false` as any))
+      .limit(5);
+    if (matches.length) return matches;
+
+    // 2) Heuristica per titolo simile (best-effort)
+    if (title) {
+      const term = `%${title.slice(0, 40)}%`;
+      const similar = await db.select().from(content)
+        .where(like(content.title, term))
+        .orderBy(desc(content.createdAt))
+        .limit(5);
+      return similar;
+    }
+
+    return [];
+  }
+
+  // ===== Daily Drops =====
+  async createDailyDrop(data: { userId: string; contentId: string; dropDate: Date; matchScore: number }): Promise<DailyDrop> {
+    const [row] = await db.insert(dailyDrops).values({
+      id: randomUUID(),
+      userId: data.userId,
+      contentId: data.contentId,
+      dropDate: data.dropDate,
+      matchScore: data.matchScore,
+    }).returning();
+    return row;
+  }
+
+  async getUserDailyDrops(userId: string, date?: string): Promise<DailyDropWithContent[]> {
+    let rows = await db.select().from(dailyDrops)
+      .where(eq(dailyDrops.userId, userId))
+      .orderBy(desc(dailyDrops.dropDate))
+      .limit(200);
+
+    if (date) {
+      // filtro per giorno (UTC) dell'ISO passato
+      const d = new Date(date);
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0));
+      const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59));
+      rows = rows.filter(r => {
+        const ts = new Date(r.dropDate as any).getTime();
+        return ts >= start.getTime() && ts <= end.getTime();
+      });
+    }
+
+    const results: DailyDropWithContent[] = [];
+    for (const dd of rows) {
+      const c = await this.getContentById(dd.contentId);
+      if (c) results.push({ ...(dd as DailyDrop), content: c } as any);
+    }
+    return results;
+  }
+
+  async markDropAsViewed(userId: string, contentId: string): Promise<void> {
+    // segna come visto l'ultimo drop per (user, content)
+    const [last] = await db.select().from(dailyDrops)
+      .where(and(eq(dailyDrops.userId, userId), eq(dailyDrops.contentId, contentId)))
+      .orderBy(desc(dailyDrops.dropDate))
+      .limit(1);
+    if (!last) return;
+    await db.update(dailyDrops)
+      .set({ wasViewed: true })
+      .where(eq(dailyDrops.id, last.id));
+  }
+
+  async toggleBookmark(userId: string, contentId: string): Promise<void> {
+    // toggle sul record più recente di daily_drops per (user, content)
+    const [last] = await db.select().from(dailyDrops)
+      .where(and(eq(dailyDrops.userId, userId), eq(dailyDrops.contentId, contentId)))
+      .orderBy(desc(dailyDrops.dropDate))
+      .limit(1);
+    if (!last) return;
+    await db.update(dailyDrops)
+      .set({ wasBookmarked: !last.wasBookmarked })
+      .where(eq(dailyDrops.id, last.id));
+  }
+
+  // ===== Submissions =====
+  async createUserSubmission(data: InsertUserSubmission): Promise<UserSubmission> {
+    const [row] = await db.insert(userSubmissions).values(data).returning();
+    return row;
+  }
+
+  async getUserSubmissions(userId: string): Promise<UserSubmission[]> {
+    return await db.select().from(userSubmissions)
+      .where(eq(userSubmissions.userId, userId))
+      .orderBy(desc(userSubmissions.createdAt));
+  }
+
+  async getAllSubmissions(status?: "pending" | "approved" | "rejected"): Promise<UserSubmission[]> {
+    if (status) {
+      return await db.select().from(userSubmissions)
+        .where(eq(userSubmissions.status, status))
+        .orderBy(desc(userSubmissions.createdAt));
+    }
+    return await db.select().from(userSubmissions)
+      .orderBy(desc(userSubmissions.createdAt));
+  }
+
+  async updateSubmissionStatus(id: string, status: "pending" | "approved" | "rejected", moderatedBy?: string, moderationNotes?: string): Promise<UserSubmission | null> {
+    const [row] = await db.update(userSubmissions)
+      .set({ status, moderatedBy: moderatedBy ?? null, moderationNotes: moderationNotes ?? null, updatedAt: sql`now()` })
+      .where(eq(userSubmissions.id, id))
+      .returning();
+    return row ?? null;
+  }
+
+  // ===== Password reset tokens =====
+  async createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [row] = await db.insert(passwordResetTokens)
+      .values({ id: randomUUID(), email: normalizeEmail(email), token, expiresAt })
+      .returning();
+    return row;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | null> {
+    const [row] = await db.select().from(passwordResetTokens)
+      .where(and(eq(passwordResetTokens.token, token), eq(passwordResetTokens.used, false)))
+      .limit(1);
+    return row ?? null;
   }
 
   async markTokenAsUsed(token: string): Promise<void> {
@@ -141,461 +327,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(passwordResetTokens.token, token));
   }
 
-  async cleanupExpiredTokens(): Promise<void> {
-    await db.delete(passwordResetTokens)
-      .where(sql`expires_at < NOW()`);
-  }
-
-  async getAllTopics(): Promise<Topic[]> {
-    return await db.select().from(topics).orderBy(topics.name);
-  }
-
-  async createTopic(topic: InsertTopic): Promise<Topic> {
-    const id = randomUUID();
-    const newTopic = { ...topic, id };
-    await db.insert(topics).values(newTopic);
-    return newTopic as Topic;
-  }
-
-  async getTopicsByIds(ids: string[]): Promise<Topic[]> {
-    if (ids.length === 0) return [];
-    return await db.select().from(topics).where(inArray(topics.id, ids));
-  }
-
-  async getUserPreferences(userId: string): Promise<(UserPreference & { topic: Topic })[]> {
-    const result = await db
-      .select({
-        id: userPreferences.id,
-        userId: userPreferences.userId,
-        topicId: userPreferences.topicId,
-        weight: userPreferences.weight,
-        createdAt: userPreferences.createdAt,
-        topic: topics
-      })
-      .from(userPreferences)
-      .innerJoin(topics, eq(userPreferences.topicId, sql`${topics.id}::uuid`))
-      .where(eq(userPreferences.userId, sql`${userId}::uuid`));
-    
-    return result;
-  }
-
-  async setUserPreferences(userId: string, topicIds: string[]): Promise<void> {
-    // Remove existing preferences
-    await db.delete(userPreferences).where(eq(userPreferences.userId, sql`${userId}::uuid`));
-    
-    // Add new preferences
-    if (topicIds.length > 0) {
-      const preferences = topicIds.map(topicId => ({
-        id: randomUUID(),
-        userId,
-        topicId,
-        weight: 1.0,
-        createdAt: new Date()
-      }));
-      await db.insert(userPreferences).values(preferences);
-    }
-  }
-
-  async getAllContent(limit = 50, offset = 0): Promise<ContentWithTopics[]> {
-    const contentResult = await db
-      .select()
-      .from(content)
-      .where(eq(content.status, 'approved'))
-      .orderBy(desc(content.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    const contentWithTopics = await Promise.all(
-      contentResult.map(async (c) => {
-        const topicsResult = await db
-          .select({
-            id: topics.id,
-            name: topics.name,
-            description: topics.description,
-            embedding: topics.embedding,
-            createdAt: topics.createdAt,
-            confidence: contentTopics.confidence
-          })
-          .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
-          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
-
-        return {
-          ...c,
-          topics: topicsResult
-        };
-      })
-    );
-
-    return contentWithTopics;
-  }
-
-  async getContentById(id: string): Promise<ContentWithTopics | undefined> {
-    const contentResult = await db.select().from(content).where(eq(content.id, id)).limit(1);
-    if (!contentResult[0]) return undefined;
-
-    const topicsResult = await db
-      .select({
-        id: topics.id,
-        name: topics.name,
-        description: topics.description,
-        embedding: topics.embedding,
-        createdAt: topics.createdAt,
-        confidence: contentTopics.confidence
-      })
-      .from(contentTopics)
-      .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
-      .where(eq(contentTopics.contentId, sql`${id}::uuid`));
-
-    return {
-      ...contentResult[0],
-      topics: topicsResult
-    };
-  }
-
-  async createContent(contentData: InsertContent): Promise<Content> {
-    const id = randomUUID();
-    const newContent = { ...contentData, id };
-    await db.insert(content).values(newContent);
-    return newContent as Content;
-  }
-
-  async updateContent(id: string, updates: Partial<Content>): Promise<Content | undefined> {
-    const result = await db.update(content)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(content.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async searchContent(query: string): Promise<ContentWithTopics[]> {
-    const contentResult = await db
-      .select()
-      .from(content)
-      .where(
-        and(
-          eq(content.status, 'approved'),
-          or(
-            like(content.title, `%${query}%`),
-            like(content.description, `%${query}%`)
-          )
-        )
-      )
-      .orderBy(desc(content.createdAt))
-      .limit(20);
-
-    const contentWithTopics = await Promise.all(
-      contentResult.map(async (c) => {
-        const topicsResult = await db
-          .select({
-            id: topics.id,
-            name: topics.name,
-            description: topics.description,
-            embedding: topics.embedding,
-            createdAt: topics.createdAt,
-            confidence: contentTopics.confidence
-          })
-          .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
-          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
-
-        return {
-          ...c,
-          topics: topicsResult
-        };
-      })
-    );
-
-    return contentWithTopics;
-  }
-
-  async setContentTopics(contentId: string, topicIds: string[], confidences: number[]): Promise<void> {
-    // Remove existing topic associations
-    await db.delete(contentTopics).where(eq(contentTopics.contentId, sql`${contentId}::uuid`));
-    
-    // Add new associations
-    if (topicIds.length > 0) {
-      const associations = topicIds.map((topicId, index) => ({
-        id: randomUUID(),
-        contentId,
-        topicId,
-        confidence: confidences[index] || 0.5,
-        createdAt: new Date()
-      }));
-      await db.insert(contentTopics).values(associations);
-    }
-  }
-
-  async getUserSubmissions(userId: string): Promise<UserSubmission[]> {
-    return await db
-      .select()
-      .from(userSubmissions)
-      .where(eq(userSubmissions.userId, sql`${userId}::uuid`))
-      .orderBy(desc(userSubmissions.createdAt));
-  }
-
-  async getAllSubmissions(status?: string): Promise<UserSubmissionWithUser[]> {
-    const query = db
-      .select({
-        id: userSubmissions.id,
-        userId: userSubmissions.userId,
-        url: userSubmissions.url,
-        title: userSubmissions.title,
-        description: userSubmissions.description,
-        suggestedTopics: userSubmissions.suggestedTopics,
-        status: userSubmissions.status,
-        moderatedBy: userSubmissions.moderatedBy,
-        moderationNotes: userSubmissions.moderationNotes,
-        contentId: userSubmissions.contentId,
-        createdAt: userSubmissions.createdAt,
-        updatedAt: userSubmissions.updatedAt,
-        user: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email
-        }
-      })
-      .from(userSubmissions)
-      .innerJoin(users, eq(userSubmissions.userId, sql`${users.id}::uuid`));
-
-    if (status) {
-      query.where(eq(userSubmissions.status, status as any));
-    }
-
-    return await query.orderBy(desc(userSubmissions.createdAt));
-  }
-
-  async createUserSubmission(submission: InsertUserSubmission): Promise<UserSubmission> {
-    const id = randomUUID();
-    const newSubmission = { ...submission, id };
-    await db.insert(userSubmissions).values(newSubmission);
-    return newSubmission as UserSubmission;
-  }
-
-  async updateSubmissionStatus(
-    id: string, 
-    status: string, 
-    moderatedBy?: string, 
-    notes?: string
-  ): Promise<UserSubmission | undefined> {
-    const result = await db.update(userSubmissions)
-      .set({ 
-        status: status as any, 
-        moderatedBy, 
-        moderationNotes: notes,
-        updatedAt: new Date()
-      })
-      .where(eq(userSubmissions.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async getUserDailyDrops(userId: string, date?: string): Promise<DailyDropWithContent[]> {
-    let query = db
-      .select({
-        id: dailyDrops.id,
-        userId: dailyDrops.userId,
-        contentId: dailyDrops.contentId,
-        dropDate: dailyDrops.dropDate,
-        matchScore: dailyDrops.matchScore,
-        wasViewed: dailyDrops.wasViewed,
-        wasBookmarked: dailyDrops.wasBookmarked,
-        sentAt: dailyDrops.sentAt,
-        emailSent: dailyDrops.emailSent,
-        createdAt: dailyDrops.createdAt,
-        content: content
-      })
-      .from(dailyDrops)
-      .innerJoin(content, eq(dailyDrops.contentId, sql`${content.id}::uuid`))
-      .where(eq(dailyDrops.userId, sql`${userId}::uuid`));
-
-    if (date) {
-      const startDate = new Date(date);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 1);
-      query = db
-        .select({
-          id: dailyDrops.id,
-          userId: dailyDrops.userId,
-          contentId: dailyDrops.contentId,
-          dropDate: dailyDrops.dropDate,
-          matchScore: dailyDrops.matchScore,
-          wasViewed: dailyDrops.wasViewed,
-          wasBookmarked: dailyDrops.wasBookmarked,
-          sentAt: dailyDrops.sentAt,
-          emailSent: dailyDrops.emailSent,
-          createdAt: dailyDrops.createdAt,
-          content: content
-        })
-        .from(dailyDrops)
-        .innerJoin(content, eq(dailyDrops.contentId, sql`${content.id}::uuid`))
-        .where(
-          and(
-            eq(dailyDrops.userId, sql`${userId}::uuid`),
-            sql`${dailyDrops.dropDate} >= ${startDate}`,
-            sql`${dailyDrops.dropDate} < ${endDate}`
-          )
-        );
-    }
-
-    const result = await query.orderBy(desc(dailyDrops.matchScore), desc(dailyDrops.dropDate));
-
-    // Add topics to each content item
-    const dropsWithContentAndTopics = await Promise.all(
-      result.map(async (drop) => {
-        const topicsResult = await db
-          .select({
-            id: topics.id,
-            name: topics.name,
-            description: topics.description,
-            embedding: topics.embedding,
-            createdAt: topics.createdAt,
-            confidence: contentTopics.confidence
-          })
-          .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
-          .where(eq(contentTopics.contentId, sql`${drop.content.id}::uuid`));
-
-        return {
-          ...drop,
-          content: {
-            ...drop.content,
-            topics: topicsResult
-          }
-        };
-      })
-    );
-
-    return dropsWithContentAndTopics;
-  }
-
-  async createDailyDrop(drop: InsertDailyDrop): Promise<DailyDrop> {
-    const id = randomUUID();
-    const newDrop = { ...drop, id };
-    await db.insert(dailyDrops).values(newDrop);
-    return newDrop as DailyDrop;
-  }
-
-  async markDropAsViewed(userId: string, contentId: string): Promise<void> {
-    await db.update(dailyDrops)
-      .set({ wasViewed: true })
-      .where(
-        and(
-          eq(dailyDrops.userId, sql`${userId}::uuid`),
-          eq(dailyDrops.contentId, sql`${contentId}::uuid`)
-        )
-      );
-  }
-
-  async toggleBookmark(userId: string, contentId: string): Promise<void> {
-    const existing = await db.select()
-      .from(dailyDrops)
-      .where(
-        and(
-          eq(dailyDrops.userId, sql`${userId}::uuid`),
-          eq(dailyDrops.contentId, sql`${contentId}::uuid`)
-        )
-      )
-      .limit(1);
-
-    if (existing[0]) {
-      await db.update(dailyDrops)
-        .set({ wasBookmarked: !existing[0].wasBookmarked })
-        .where(
-          and(
-            eq(dailyDrops.userId, sql`${userId}::uuid`),
-            eq(dailyDrops.contentId, sql`${contentId}::uuid`)
-          )
-        );
-    }
-  }
-
-  async getUserProfileVector(userId: string): Promise<string | undefined> {
-    const result = await db.select()
-      .from(userProfileVectors)
-      .where(eq(userProfileVectors.userId, sql`${userId}::uuid`))
-      .limit(1);
-    return result[0]?.embedding;
-  }
-
-  async setUserProfileVector(userId: string, embedding: string): Promise<void> {
-    const existing = await db.select()
-      .from(userProfileVectors)
-      .where(eq(userProfileVectors.userId, sql`${userId}::uuid`))
-      .limit(1);
-
-    if (existing[0]) {
-      await db.update(userProfileVectors)
-        .set({ embedding, updatedAt: new Date() })
-        .where(eq(userProfileVectors.userId, sql`${userId}::uuid`));
-    } else {
-      await db.insert(userProfileVectors).values({
-        id: randomUUID(),
-        userId,
-        embedding,
-        updatedAt: new Date()
-      });
-    }
-  }
-
-  async findSimilarContent(embedding: string, limit: number, excludeIds?: string[]): Promise<ContentWithTopics[]> {
-    // This is a simplified version - in production, you'd use pgvector's similarity operators
-    // For now, return random approved content
-    let query = db
-      .select()
-      .from(content)
-      .where(eq(content.status, 'approved'))
-      .orderBy(desc(content.createdAt))
-      .limit(limit);
-
-    if (excludeIds && excludeIds.length > 0) {
-      query = db
-        .select()
-        .from(content)
-        .where(
-          and(
-            eq(content.status, 'approved'),
-            sql`${content.id} NOT IN ${excludeIds}`
-          )
-        )
-        .orderBy(desc(content.createdAt))
-        .limit(limit);
-    }
-
-    const contentResult = await query;
-
-    const contentWithTopics = await Promise.all(
-      contentResult.map(async (c) => {
-        const topicsResult = await db
-          .select({
-            id: topics.id,
-            name: topics.name,
-            description: topics.description,
-            embedding: topics.embedding,
-            createdAt: topics.createdAt,
-            confidence: contentTopics.confidence
-          })
-          .from(contentTopics)
-          .innerJoin(topics, eq(contentTopics.topicId, sql`${topics.id}::uuid`))
-          .where(eq(contentTopics.contentId, sql`${c.id}::uuid`));
-
-        return {
-          ...c,
-          topics: topicsResult
-        };
-      })
-    );
-
-    return contentWithTopics;
-  }
-
-  async getSystemStats(): Promise<{
-    totalContent: number;
-    pendingSubmissions: number;
-    activeUsers: number;
-    dailyMatches: number;
-  }> {
+  // ===== System stats =====
+  async getSystemStats(): Promise<{ totalContent: number; pendingSubmissions: number; activeUsers: number; dailyMatches: number; }> {
     const [contentCount] = await db.select({ count: sql<number>`count(*)` }).from(content);
     const [submissionCount] = await db.select({ count: sql<number>`count(*)` }).from(userSubmissions).where(eq(userSubmissions.status, 'pending'));
     const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isOnboarded, true));
@@ -611,3 +344,4 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+export default storage;
