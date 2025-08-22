@@ -34,4 +34,5 @@ export function serveStatic(app: Express) {
       res.status(404).send("index.html not found. Did you run `vite build`?");
     }
   });
-}
+} // devosolo replyte: uncomment above and remove this line
+ 
