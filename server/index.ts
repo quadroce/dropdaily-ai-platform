@@ -138,13 +138,18 @@ server?.on("listening", () => {
 });
 
 // Avvia il server usando la porta di Render
-const port = Number(process.env.PORT || 5000);
-console.log("[BOOT] PORT =", process.env.PORT);
+const rawPort = process.env.PORT;
+if (process.env.NODE_ENV === "production" && !rawPort) {
+  // Se sei su Render e PORT non è stata fornita, fallisci chiaramente
+  throw new Error("PORT is not set in production. On Render you must listen on process.env.PORT.");
+}
+const port = Number(rawPort || 5000);
+console.log("[BOOT] PORT =", rawPort ?? "(fallback 5000 in dev)");
+
 server.listen(port, "0.0.0.0", () => {
-  console.log("✅ Server started, initializing app...");
+  console.log(`🚀 Server listening on 0.0.0.0:${port}`);
   setupAppInBackground();
 });
-
 // Mini keep-alive (diagnostica; non dovrebbe servire, ma evita idle edge cases)
 setInterval(() => {}, 60_000);
 
