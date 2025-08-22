@@ -27,6 +27,16 @@ process.on('uncaughtException', (error) => {
   console.error('Application continuing with degraded functionality...');
   // Don't exit - keep health checks working for deployment
 });
+process.on('exit', (code) => {
+  console.log('📤 Process exit', code);
+});
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received (likely health check failure or deploy)');
+});
+server.on('close', () => {
+  console.log('🔒 HTTP server closed');
+});
+
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
