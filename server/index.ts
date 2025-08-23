@@ -1,283 +1,173 @@
-import "./bootstrap-ipv4"; // deve essere PRIMA di qualunque import che inizializzi il DB
-import dns from "dns/promises";
-const host = new URL(process.env.DATABASE_URL!).hostname;
-const all = await dns.lookup(host, { all: true });
-console.log("[DNS] lookup", host, "=>", all);
-// Deve mostrare anche un indirizzo IPv4 (A). Se vedi solo AAAA, usiamo resolve4 come sopra.
+// server/index.ts
+import "./bootstrap-ipv4";            // deve stare PRIMA di qualsiasi init DB
+import "dotenv/config";
 
-import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
-
+import dns from "node:dns/promises";
+import fs from "node:fs";
+import path from "node:path";
 
 const app = express();
 
-// Fix DATABASE_URL if using Replit PostgreSQL environment variables
-if (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE) {
-  const newDatabaseUrl = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}?sslmode=require`;
-  if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes(process.env.PGHOST)) {
-    console.log("🔧 Updating DATABASE_URL to use Replit PostgreSQL with SSL");
-    process.env.DATABASE_URL = newDatabaseUrl;
-  }
-}
+// ---------- Health endpoints (sempre veloci) ----------
+const health = { status: "healthy", timestamp: Date.now(), server: "running" };
+app.get("/health", (_req, res) => res.status(200).json(health));
+app.get("/healthz", (_req, res) => res.status(200).json(health));
+app.get("/ready", (_req, res) => res.status(200).json(health));
+app.head("/", (_req, res) => res.status(200).end());
 
-// Global error handlers for production stability and deployment resilience
-process.on('uncaughtException', (error) => {
-  console.error('💥 Uncaught Exception:', error);
-  console.error('Application continuing with degraded functionality...');
-  // Don't exit - keep health checks working for deployment
+// ---------- Error & shutdown resilience ----------
+process.on("uncaughtException", (err) => {
+  console.error("💥 Uncaught Exception:", err);
+  console.error("Continuo con funzionalità ridotte…");
+});
+process.on("unhandledRejection", (reason, p) => {
+  console.error("💥 Unhandled Rejection at:", p, "reason:", reason);
+  console.error("Continuo con funzionalità ridotte…");
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
-  console.error('Application continuing with degraded functionality...');
-  // Don't exit - keep health checks working for deployment
-});
-
-// Add SIGTERM handler for graceful shutdown during deployment
-process.on('SIGTERM', () => {
-  console.log('🔄 Received SIGTERM, shutting down gracefully...');
+const server = createServer(app);
+process.on("SIGTERM", () => {
+  console.log("🔄 SIGTERM: chiusura gracefull…");
   server.close(() => {
-    console.log('✅ Server closed');
+    console.log("✅ Server chiuso");
     process.exit(0);
   });
 });
 
-// ULTRA-CRITICAL: Dedicated health check endpoints for deployment (immediate response, no dependencies)
-// These endpoints MUST respond within 1 second for deployment success
-const healthResponse = { status: 'healthy', timestamp: Date.now(), server: 'running' };
+// ---------- Avvio server immediato (per health check) ----------
+const isProd = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+const port = Number(process.env.PORT || 5000);
 
-app.get("/health", (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json(healthResponse);
-});
-
-app.get("/healthz", (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json(healthResponse);
-});
-
-app.get("/ready", (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.status(200).json(healthResponse);
-});
-
-// DEPLOYMENT CRITICAL: HEAD request handler for root endpoint (instant response)
-app.head("/", (req, res) => {
-  res.status(200).end();
-});
-
-// ULTRA-CRITICAL: Root endpoint must respond with 200 immediately for deployment health checks
-// This handler responds INSTANTLY without any dependencies, conditionals, or async operations
-app.get("/", (req, res, next) => {
-  // DEPLOYMENT CRITICAL: Always respond with 200 first - no conditions, no delays
-  // Deployment platforms need instant 200 response at root endpoint
-  res.status(200);
-  
-  // Check if this is likely a health check request (deployment platforms, load balancers, etc.)
-  const isHealthCheck = req.headers['user-agent']?.toLowerCase().includes('health') ||
-                       req.headers['user-agent']?.toLowerCase().includes('check') ||
-                       req.headers['user-agent']?.toLowerCase().includes('curl') ||
-                       req.headers['user-agent']?.toLowerCase().includes('wget') ||
-                       req.headers['accept']?.includes('application/json') ||
-                       req.query.health !== undefined ||
-                       req.method === 'HEAD';
-  
-  if (isHealthCheck) {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.json(healthResponse);
-  }
-  
-  // For browser requests: serve app if ready, or minimal loading page if not
-  if (!appInitialized) {
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.send(`<!DOCTYPE html>
-<html><head><title>DropDaily</title><meta http-equiv="refresh" content="2"></head>
-<body><h1>DropDaily</h1><p>Starting up...</p></body></html>`);
-  }
-  
-  // App is ready, continue to normal routing (Vite/static serving)
-  next();
-});
-
-// Global state to track if app is fully initialized
-let appInitialized = false;
-
-
-
-
-// Create server immediately with only health checks
-const server = createServer(app);
-
-// Server configuration optimized for fast health check responses
-server.timeout = 10000; // 10 second timeout for faster health checks
-server.keepAliveTimeout = 15000; // Shorter keep alive
-server.headersTimeout = 12000; // Shorter headers timeout
-
-
-
-// Start server immediately for health checks - NO logging to avoid any delays
-const port = parseInt(process.env.PORT || '5000', 10);
+server.keepAliveTimeout = 15000;
+server.headersTimeout = 12000;
 
 server.listen(port, "0.0.0.0", () => {
-  console.log("✅ Server started, initializing app...");
-  // Server is running, start background setup immediately
-  setupAppInBackground();
+  console.log(`[BOOT] PORT = ${port}`);
+  console.log(`🚀 Server listening on 0.0.0.0:${port}`);
+  setupAppInBackground().catch((e) => {
+    console.error("Setup error:", e);
+    console.log("✅ Proseguo con funzionalità base dopo l’errore di setup");
+  });
 });
 
-// Handle server errors - be more resilient for deployment
-server.on('error', (error: any) => {
-  console.error('Server error:', error);
-  // Only exit on critical port binding errors
-  if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
-    console.error('❌ Critical server error - exiting');
-    process.exit(1);
+// ======================================================
+//  App setup in background (evita di bloccare health)
+// ======================================================
+async function setupAppInBackground(): Promise<void> {
+  console.log("🔧 Background setup starting…");
+
+  // (Opzionale) Log DNS DB senza top-level await
+  try {
+    if (process.env.DATABASE_URL) {
+      const host = new URL(process.env.DATABASE_URL).hostname;
+      const all = await dns.lookup(host, { all: true });
+      console.log("[DNS] lookup", host, "=>", all);
+    }
+  } catch (e) {
+    console.warn("[DNS] lookup failed:", (e as Error).message);
   }
-  // For all other errors, log but continue (health checks remain functional)
-});
 
-// Add server listening event for better startup tracking
-server.on('listening', () => {
-  const addr = server.address();
-  const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
-  console.log(`🚀 Server listening on ${bind}`);
-});
+  // ---------- Middleware base ----------
+  console.log("🔧 Setting up middleware…");
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
 
-// Background setup function - delayed to not interfere with health checks
-function setupAppInBackground(): void {
-  // Import and setup everything in background, with delays between operations
-  Promise.resolve().then(async () => {
-    console.log("🔧 Background setup starting...");
-    
-    // Add overall timeout to prevent hanging during deployment
-    const setupTimeout = setTimeout(() => {
-      console.warn("⚠️ Background setup timeout - app will continue with basic functionality");
-      appInitialized = true; // Allow app to continue even if setup times out
-    }, 20000); // 20 second timeout for faster deployment
-    
+  // Log lento solo per /api
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      const dt = Date.now() - start;
+      if (req.path.startsWith("/api") && dt > 100) {
+        console.log(`${req.method} ${req.path} ${res.statusCode} in ${dt}ms`);
+      }
+    });
+    next();
+  });
+
+  // ---------- API routes PRIMA del frontend ----------
+  console.log("📥 Loading API routes…");
+  const { registerRoutes } = await import("./routes");
+  await registerRoutes(app);
+  console.log("✅ API routes loaded successfully");
+
+  // Error handler API
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("API Error:", err);
+    if (err?.message?.includes("429") || err?.message?.includes("quota")) {
+      return res.status(200).json({
+        message: "Service temporarily limited due to external API constraints",
+        fallback: true,
+      });
+    }
+    res.status(err?.status || 500).json({
+      message: err?.status === 500 ? "Service temporarily unavailable" : err?.message || "Internal Server Error",
+    });
+  });
+
+  // ---------- Frontend: Vite in dev, statico in prod ----------
+  console.log("🎯 Setting up frontend (Vite/Static)…");
+  let viteModule: any = null;
+  try {
+    viteModule = await import("./vite");
+    console.log("✅ Vite module imported successfully");
+  } catch (e) {
+    console.warn("⚠️ vite module not available:", (e as Error).message);
+  }
+
+  const staticDir = path.resolve(process.cwd(), "dist", "public");
+  const builtIndex = path.join(staticDir, "index.html");
+  const clientIndex = path.resolve(process.cwd(), "client", "index.html");
+
+  console.log("[frontend] isProd:", isProd);
+  console.log("[frontend] client/index.html exists:", fs.existsSync(clientIndex));
+  console.log("[frontend] dist/public/index.html exists:", fs.existsSync(builtIndex));
+
+  if (!isProd && viteModule?.setupVite && fs.existsSync(clientIndex)) {
+    // DEV LOCALE: sempre Vite middleware
+    await viteModule.setupVite(app, server);
+    console.log("✅ Vite dev middleware mounted");
+  } else if (viteModule?.serveStatic && fs.existsSync(builtIndex)) {
+    // PROD / build locale: statico da dist/public
+    viteModule.serveStatic(app);
+    console.log("✅ Static serving mounted");
+  } else {
+    // Fallback API-only (evita “Cannot GET /”)
+    console.log("ℹ️ No frontend detected – running in API-only mode");
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      res
+        .status(200)
+        .send(`<!doctype html>
+<h1>DropDaily API-only</h1>
+<p>Nessun frontend in esecuzione.</p>
+<ul>
+  <li><a href="/healthz">/healthz</a></li>
+  <li><a href="/api/admin/stats">/api/admin/stats</a></li>
+</ul>`);
+    });
+  }
+
+  console.log("🎉 Core application setup completed!");
+
+  // ---------- DB init (non-blocking) ----------
+  setImmediate(async () => {
     try {
-      // PRIORITY 1: Basic middleware first
-      console.log("🔧 Setting up middleware...");
-      app.use(express.json());
-      app.use(express.urlencoded({ extended: false }));
+      console.log("🗄️ Initializing database…");
+      const { initializeDatabase } = await import("./scripts/db-init");
+      await initializeDatabase();
 
-      // Logging middleware  
-      app.use((req, res, next) => {
-        const start = Date.now();
-        res.on("finish", () => {
-          const duration = Date.now() - start;
-          if (req.path.startsWith("/api") && duration > 100) {
-            console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
-          }
-        });
-        next();
-      });
+      try {
+        const { initializeTopics } = await import("./services/contentIngestion");
+        await initializeTopics();
+      } catch (e) {
+        console.warn("⚠️ Topics init skipped:", (e as Error).message);
+      }
 
-      // PRIORITY 2: Load API routes BEFORE Vite to ensure they work
-      console.log("📥 Loading API routes...");
-      const { registerRoutes } = await import('./routes');
-      await registerRoutes(app);
-      console.log("✅ API routes loaded successfully");
-
-      // Error handling for API routes
-      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-        console.error('API Error:', err);
-        
-        // Don't crash on OpenAI quota errors
-        if (err.message?.includes('429') || err.message?.includes('quota')) {
-          return res.status(200).json({ 
-            message: "Service temporarily limited due to external API constraints",
-            fallback: true
-          });
-        }
-        
-        res.status(err.status || 500).json({ 
-          message: err.status === 500 ? "Service temporarily unavailable" : err.message || "Internal Server Error" 
-        });
-      });
-
-      /// ...
-console.log("📥 Importing vite module...");
-let viteModule: any = null;
-try {
-  viteModule = await import("./vite");
-  console.log("✅ Vite module imported successfully");
-} catch (e) {
-  console.error("❌ Failed to import vite module:", e);
-}
-
-console.log("🎯 Setting up Vite/Static serving...");
-
-// Considera prod anche quando sei su Render (PORT settata)
-const isProd = process.env.NODE_ENV === "production" || !!process.env.PORT || process.env.RENDER === "true";
-
-// ✅ In produzione: SOLO static
-if (isProd && viteModule?.serveStatic) {
-  viteModule.serveStatic(app);
-  console.log("✅ Static serving setup completed");
-}
-// 🧪 In sviluppo locale: Vite dev server
-else if (viteModule?.setupVite) {
-  await viteModule.setupVite(app, server!);
-  console.log("✅ Vite setup completed - React app now available");
-}
-// Fallback static se il modulo non c’è
-else {
-  const path = await import("path");
-  const express = await import("express");
-  const staticPath = path.resolve(process.cwd(), "dist", "public");
-  app.use(express.default.static(staticPath));
-  console.log("✅ Fallback static serving is active from", staticPath);
-}
-
-      // Clear the setup timeout and mark app as fully initialized
-      clearTimeout(setupTimeout);
-      appInitialized = true;
-      console.log("✅ App now ready to serve requests!");
-
-      // Database setup (completely independent, non-blocking, with timeout protection)
-      setImmediate(() => {
-        Promise.resolve().then(async () => {
-          try {
-            console.log("🗄️ Initializing database...");
-            
-            // Add timeout protection to prevent hanging
-            const dbInitPromise = Promise.race([
-              (async () => {
-                const { initializeDatabase } = await import('./scripts/db-init');
-                await initializeDatabase();
-                
-                // Initialize topics after database is ready
-                const { initializeTopics } = await import('./services/contentIngestion');
-                await initializeTopics();
-              })(),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database initialization timeout')), 15000)
-              )
-            ]);
-            
-            await dbInitPromise;
-          } catch (error) {
-            console.error("Database initialization failed:", error);
-            // Continue without database - health checks and core app still work
-          }
-        }).catch(error => {
-          console.error("Background setup error:", error);
-          // Gracefully handle any background setup failures
-        });
-      });
-
-    } catch (error) {
-      console.error("Setup error:", error);
-      // Clear timeout and mark as initialized even on error to allow health checks
-      clearTimeout(setupTimeout);
-      appInitialized = true;
-      console.log("✅ App continuing with basic functionality after setup error");
+      console.log("🎉 Database initialization completed successfully");
+    } catch (e) {
+      console.error("Database initialization failed:", e);
     }
   });
 }

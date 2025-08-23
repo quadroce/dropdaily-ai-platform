@@ -1,38 +1,48 @@
 // server/vite.ts
 import type { Express } from "express";
-import express from "express";
-import fs from "node:fs";
+import { createServer as createViteServer, createLogger } from "vite";
+import type { Server } from "http";
+import fs from "node:fs/promises";
 import path from "node:path";
 
-// Dev: Vite in middleware mode (importato solo quando serve)
-export async function setupVite(app: Express, server: import("http").Server) {
-  const vitePkg = await import("vite");
-  const createViteServer = (vitePkg as any).createServer as typeof import("vite").createServer;
+const log = createLogger();
+
+export async function setupVite(app: Express, _server: Server) {
+  // Usa SEMPRE il config del progetto (dove c’è l’alias "@")
+  const configFile = path.resolve(process.cwd(), "vite.config.ts");
 
   const vite = await createViteServer({
-    server: { middlewareMode: true, hmr: { server } },
+    configFile,
     appType: "custom",
-    root: path.resolve(process.cwd(), "client"),
+    // Non passare root qui: lo prende dal config (root: "client")
   });
 
   app.use(vite.middlewares);
-}
 
-// Prod: servi gli asset statici già buildati
-export function serveStatic(app: Express) {
-  const staticPath = path.resolve(process.cwd(), "dist", "public");
-
-  app.use(express.static(staticPath));
-
-  // SPA fallback: per tutte le route non-API restituisci index.html
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) return next();
-    const indexFile = path.join(staticPath, "index.html");
-    if (fs.existsSync(indexFile)) {
-      res.sendFile(indexFile);
-    } else {
-      res.status(404).send("index.html not found. Did you run `vite build`?");
+  // index.html dal client, con transform di Vite
+  app.use("*", async (req, res, next) => {
+    try {
+      const templatePath = path.resolve(process.cwd(), "client", "index.html");
+      let template = await fs.readFile(templatePath, "utf-8");
+      const html = await vite.transformIndexHtml(req.originalUrl, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(html);
+    } catch (e) {
+      log.error(e as any);
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
     }
   });
-} // devosolo replyte: uncomment above and remove this line
- 
+}
+
+export async function serveStatic(app: Express) {
+  const distPath = path.resolve(process.cwd(), "dist", "public");
+  const exists = await fs.stat(distPath).then(() => true).catch(() => false);
+  if (!exists) {
+    throw new Error(
+      `dist/public non trovato. Esegui prima "npm run build". Path: ${distPath}`
+    );
+  }
+  const express = (await import("express")).default;
+  app.use(express.static(distPath));
+  app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+}
