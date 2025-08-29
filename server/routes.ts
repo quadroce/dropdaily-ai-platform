@@ -130,96 +130,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET preferences (cast ::text su entrambe le parti)
   app.get("/api/users/:userId/preferences", async (req, res) => {
-    try {
-      const userId = String(req.params.userId);
-      if (!isUuid(userId)) return res.status(400).json({ message: "Invalid userId" });
+  try {
+    const userId = String(req.params.userId);
+    if (!isUuid(userId)) return res.status(400).json({ message: "Invalid userId" });
 
-      const r = await db.execute(sql`
-        select 
-          up.user_id::text  as user_id,
-          up.topic_id::text as topic_id,
-          coalesce(up.weight, 1.0) as weight,
-          t.slug,
-          t.name
-        from public.user_preferences up
-        join public.topics t on t.id = up.topic_id
-        where up.user_id::text = ${userId}::text
-        order by t.name asc
-      `);
+    const rows = await db.execute(sql`
+      select 
+        up.user_id::text  as user_id,
+        up.topic_id::text as topic_id,
+        coalesce(up.weight, 1.0) as weight,
+        t.slug,
+        t.name
+      from public.user_preferences up
+      join public.topics t 
+        on t.id::text = up.topic_id::text
+      where up.user_id::text = ${sql`${userId}::text`}
+      order by t.name asc
+    `);
 
-      res.json(r);
-    } catch (err) {
-      console.error("Failed to get user preferences:", err);
-      res.status(500).json({ message: "Failed to fetch preferences" });
-    }
-  });
+    res.json(rows);
+  } catch (err) {
+    console.error("Failed to get user preferences:", err);
+    res.status(500).json({ message: "Failed to fetch preferences" });
+  }
+});
 
   // POST/replace preferences for a user
-  app.post("/api/users/:userId/preferences", async (req, res) => {
-    try {
-      const userId = String(req.params.userId);
-      if (!isUuid(userId)) return res.status(400).json({ message: "Invalid userId" });
+app.post("/api/users/:userId/preferences", async (req, res) => {
+  try {
+    const userId = String(req.params.userId);
+    if (!isUuid(userId)) return res.status(400).json({ message: "Invalid userId" });
 
-      const bodySchema = z.object({
-        preferences: z
-          .array(
-            z.object({
-              topicId: z.string().uuid().optional(),
-              topicSlug: z.string().optional(),
-              weight: z.number().min(0).max(1).optional(),
-            })
-          )
-          .default([]),
-      });
+    const bodySchema = z.object({
+      preferences: z.array(z.object({
+        topicId: z.string().uuid().optional(),
+        topicSlug: z.string().optional(),
+        weight: z.number().min(0).max(1).optional(),
+      })).default([]),
+    });
 
-      const { preferences } = bodySchema.parse(req.body);
+    const { preferences } = bodySchema.parse(req.body);
 
-      // risolviamo sempre un topic_id valido (mai NULL)
-      const rowsToInsert: Array<{ topicId: string; weight: number }> = [];
-      for (const p of preferences) {
-        let topicId = p.topicId ?? null;
-
-        if (!topicId && p.topicSlug) {
-          topicId = await resolveTopicIdFromSlug(p.topicSlug);
-        }
-        if (!topicId) {
-          // saltiamo elementi non risolvibili
-          continue;
-        }
-        rowsToInsert.push({ topicId, weight: p.weight ?? 1.0 });
+    // risolviamo SEMPRE un topic_id valido
+    const rowsToInsert: Array<{ topicId: string; weight: number }> = [];
+    for (const p of preferences) {
+      let topicId = p.topicId ?? null;
+      if (!topicId && p.topicSlug) {
+        topicId = await resolveTopicIdFromSlug(p.topicSlug);
       }
-
-      // transazione "replace": cancelliamo e reinseriamo
-      await db.execute(
-        sql`delete from public.user_preferences where user_id::text = ${userId}::text`
-      );
-
-      for (const row of rowsToInsert) {
-        await db.execute(sql`
-          insert into public.user_preferences (user_id, topic_id, weight)
-          values (${userId}::uuid, ${row.topicId}::uuid, ${row.weight})
-        `);
-      }
-
-      const saved = await db.execute(sql`
-        select 
-          up.user_id::text  as user_id,
-          up.topic_id::text as topic_id,
-          coalesce(up.weight, 1.0) as weight,
-          t.slug,
-          t.name
-        from public.user_preferences up
-        join public.topics t on t.id = up.topic_id
-        where up.user_id::text = ${userId}::text
-        order by t.name asc
-      `);
-
-      res.json({ ok: true, count: rowsToInsert.length, preferences: saved });
-    } catch (err) {
-      console.error("Failed to save preferences:", err);
-      res.status(500).json({ message: "Failed to save preferences" });
+      if (!topicId) continue; // salta elementi non risolvibili
+      rowsToInsert.push({ topicId, weight: p.weight ?? 1.0 });
     }
-  });
+
+    // replace atomico: cancella e reinserisci
+    await db.execute(sql`
+      delete from public.user_preferences 
+      where user_id::text = ${sql`${userId}::text`}
+    `);
+
+    for (const row of rowsToInsert) {
+      await db.execute(sql`
+        insert into public.user_preferences (user_id, topic_id, weight)
+        values (${sql`${userId}::uuid`}, ${sql`${row.topicId}::uuid`}, ${row.weight})
+      `);
+    }
+
+    const saved = await db.execute(sql`
+      select 
+        up.user_id::text  as user_id,
+        up.topic_id::text as topic_id,
+        coalesce(up.weight, 1.0) as weight,
+        t.slug,
+        t.name
+      from public.user_preferences up
+      join public.topics t 
+        on t.id::text = up.topic_id::text
+      where up.user_id::text = ${sql`${userId}::text`}
+      order by t.name asc
+    `);
+
+    res.json({ ok: true, count: rowsToInsert.length, preferences: saved });
+  } catch (err) {
+    console.error("Failed to save preferences:", err);
+    res.status(500).json({ message: "Failed to save preferences" });
+  }
+});
 
   // Content -----------------------------------------------------------------
   app.get("/api/content", async (req, res) => {
@@ -254,54 +249,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Daily Drops (FIX UUID↔TEXT) ---------------------------------------------
 
   app.get("/api/users/:userId/daily-drops", async (req, res) => {
-    try {
-      const userId = String(req.params.userId);
-      if (!isUuid(userId)) return res.status(400).json({ message: "Invalid userId" });
+  try {
+    const userId = String(req.params.userId);
+    const date = (req.query.date as string) || null;
 
-      const date = (req.query.date as string) || null;
+    const r = await db.execute(sql`
+      select 
+        dd.content_id::text as content_id,
+        dd.user_id::text    as user_id,
+        dd.was_viewed       as is_viewed,
+        dd.created_at,
+        c.title, c.description, c.url, c.image_url, c.thumbnail_url, c.source, c.published_at
+      from public.daily_drops dd
+      join public.content c on c.id::text = dd.content_id::text
+      where dd.user_id::text = ${userId}::text
+        ${date ? sql`and date(dd.created_at) = ${date}::date` : sql``}
+      order by dd.created_at desc
+      limit 200
+    `);
 
-      const r = await db.execute(sql`
-        select 
-          dd.content_id::text as content_id,
-          dd.user_id::text    as user_id,
-          dd.created_at,
-          dd.is_viewed,
-          c.title, c.description, c.url, c.image_url, c.thumbnail_url, c.source, c.published_at
-        from public.daily_drops dd
-        join public.content c on c.id::text = dd.content_id::text
-        where dd.user_id::text = ${userId}::text
-          ${date ? sql`and date(dd.created_at) = ${date}::date` : sql``}
-        order by dd.created_at desc
-        limit 200
-      `);
-
-      res.json(r);
-    } catch (err) {
-      console.error("Failed to get daily drops:", err);
-      res.status(500).json({ message: "Failed to fetch daily drops" });
-    }
-  });
+    res.json(r);
+  } catch (err) {
+    console.error("Failed to get daily drops:", err);
+    res.status(500).json({ message: "Failed to fetch daily drops" });
+  }
+});
 
   app.post("/api/users/:userId/daily-drops/:contentId/view", async (req, res) => {
-    try {
-      const userId = String(req.params.userId);
-      const contentId = String(req.params.contentId);
-      if (!isUuid(userId) || !isUuid(contentId))
-        return res.status(400).json({ message: "Invalid ids" });
+  try {
+    const userId = String(req.params.userId);
+    const contentId = String(req.params.contentId);
 
-      await db.execute(sql`
-        update public.daily_drops
-           set is_viewed = true, updated_at = now()
-         where user_id::text = ${userId}::text
-           and content_id::text = ${contentId}::text
-      `);
+    await db.execute(sql`
+      update public.daily_drops
+         set was_viewed = true, updated_at = now()
+       where user_id::text = ${userId}::text
+         and content_id::text = ${contentId}::text
+    `);
 
-      res.json({ message: "Marked as viewed" });
-    } catch (err) {
-      console.error("Failed to mark as viewed:", err);
-      res.status(500).json({ message: "Failed to mark as viewed" });
-    }
-  });
+    res.json({ message: "Marked as viewed" });
+  } catch (err) {
+    console.error("Failed to mark as viewed:", err);
+    res.status(500).json({ message: "Failed to mark as viewed" });
+  }
+});
 
   app.post("/api/users/:userId/daily-drops/:contentId/bookmark", async (req, res) => {
     try {

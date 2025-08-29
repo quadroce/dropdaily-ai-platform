@@ -9,24 +9,58 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DailyDropWithContent, UserPreference, Topic } from "@shared/schema";
 import { Calendar, Flame, Sparkles } from "lucide-react";
 
+type RawPref = (UserPreference & { topic?: Topic }) & {
+  name?: string;        // backend flat
+  topic_name?: string;  // eventuale variante
+  topic_id?: string;
+};
+
+type RawDrop = DailyDropWithContent & {
+  content_id?: string;
+  is_viewed?: boolean;
+  was_viewed?: boolean;
+  isViewed?: boolean;
+};
+
 export default function DailyDrop() {
   const { user } = useAuth();
 
-  const { data: dailyDrops, isLoading: dropsLoading } = useQuery<DailyDropWithContent[]>({
+  const { data: rawDailyDrops, isLoading: dropsLoading } = useQuery<RawDrop[]>({
     queryKey: ["/api/users", user?.id, "daily-drops"],
     enabled: !!user,
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${user!.id}/daily-drops`);
+      if (!res.ok) throw new Error("Failed to load daily drops");
+      return res.json();
+    },
   });
 
-  const { data: userPreferences, isLoading: preferencesLoading } = useQuery<(UserPreference & { topic: Topic })[]>({
+  const { data: rawPreferences, isLoading: preferencesLoading } = useQuery<RawPref[]>({
     queryKey: ["/api/users", user?.id, "preferences"],
     enabled: !!user,
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${user!.id}/preferences`);
+      if (!res.ok) throw new Error("Failed to load preferences");
+      return res.json();
+    },
+  });
+
+  // Normalizzazioni per evitare accessi a proprietà undefined
+  const normalizedDrops: (DailyDropWithContent & { id: string })[] =
+    (rawDailyDrops ?? []).map((d) => {
+      const id = (d as any).id ?? (d as any).content_id;
+      const isViewed = (d as any).is_viewed ?? (d as any).was_viewed ?? (d as any).isViewed ?? false;
+      return { ...(d as any), id, isViewed };
+    }).filter((d) => !!d.id);
+
+  const normalizedPrefs = (rawPreferences ?? []).map((p) => {
+    const name = p.topic?.name ?? p.name ?? p.topic_name ?? "Unknown";
+    const id = (p as any).id ?? p.topic_id ?? name;
+    return { id, name };
   });
 
   const today = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
   });
 
   if (dropsLoading) {
@@ -102,7 +136,7 @@ export default function DailyDrop() {
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-primary">
-                          {dailyDrops?.length || 0} items curated
+                          {normalizedDrops.length} items curated
                         </span>
                         <Sparkles className="h-4 w-4 text-primary" />
                       </div>
@@ -121,9 +155,9 @@ export default function DailyDrop() {
                         ))}
                       </div>
                     ) : (
-                      userPreferences?.slice(0, 4).map((pref) => (
+                      normalizedPrefs.slice(0, 4).map((pref) => (
                         <Badge key={pref.id} variant="secondary" className="text-xs">
-                          {pref.topic.name}
+                          {pref.name}
                         </Badge>
                       ))
                     )}
@@ -153,10 +187,10 @@ export default function DailyDrop() {
             <p className="text-gray-600 mt-1">{today}</p>
           </div>
 
-          {dailyDrops && dailyDrops.length > 0 ? (
+          {normalizedDrops.length > 0 ? (
             <div className="space-y-6">
-              {dailyDrops.map((drop) => (
-                <ContentCard key={drop.id} drop={drop} />
+              {normalizedDrops.map((drop) => (
+                <ContentCard key={drop.id} drop={drop as any} />
               ))}
               
               {/* Load More Button */}

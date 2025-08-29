@@ -1,34 +1,27 @@
-// vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const here = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
-  root: path.resolve(here, "client"),
-
   plugins: [react()],
-
+  root: path.resolve(process.cwd(), "client"),
+  publicDir: path.resolve(process.cwd(), "client", "public"),
   resolve: {
     alias: {
-      "@": path.resolve(here, "client", "src"),
-      // mantieni questi solo se davvero li usi:
-      // "@shared": path.resolve(here, "shared"),
-      // "@assets": path.resolve(here, "attached_assets"),
+      "@": path.resolve(process.cwd(), "client", "src"),
     },
   },
-
+  build: {
+    outDir: path.resolve(process.cwd(), "dist", "public"),
+    emptyOutDir: true,
+    sourcemap: true
+  },
   server: {
     host: true,
     port: 5173,
-    strictPort: false,
+    strictPort: false
   },
-
-  build: {
-    outDir: path.resolve(here, "dist", "public"),
-    emptyOutDir: true,
-    sourcemap: true,
-  },
+  optimizeDeps: {
+    exclude: ["lightningcss", "@babel/preset-typescript/package.json"]
+  }
 });

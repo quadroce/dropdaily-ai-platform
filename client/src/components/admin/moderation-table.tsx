@@ -1,303 +1,218 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import type { UserSubmissionWithUser } from "@shared/schema";
-import { ExternalLink, Play, FileText } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
+
+type UserLite = {
+  id?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+};
+
+type TopicLite = { id: string | number; name: string };
+
+type ContentLite = {
+  id?: string | number;
+  title?: string | null;
+  url?: string | null;
+  source?: string | null; // e.g. "rss" | "youtube" ...
+  topics?: TopicLite[] | null;
+};
+
+type ModerationItem = {
+  id?: string | number;
+  content?: ContentLite | null;
+  submittedBy?: UserLite | null; // <- QUI spesso è undefined/null
+  status?: "pending" | "approved" | "rejected" | string;
+  createdAt?: string | number | Date | null;
+  flagsCount?: number | null;
+  notes?: string | null;
+};
 
 interface ModerationTableProps {
-  submissions: UserSubmissionWithUser[];
+  items?: ModerationItem[] | null;
+  title?: string;
+  onApprove?: (item: ModerationItem) => void;
+  onReject?: (item: ModerationItem) => void;
 }
 
-export function ModerationTable({ submissions }: ModerationTableProps) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([]);
-  const [moderationDialog, setModerationDialog] = useState<{
-    open: boolean;
-    submission: UserSubmissionWithUser | null;
-    action: 'approve' | 'reject';
-  }>({
-    open: false,
-    submission: null,
-    action: 'approve'
-  });
-  const [moderationNotes, setModerationNotes] = useState("");
+const safeDisplayName = (u?: UserLite | null) => {
+  if (!u) return "Unknown user";
+  const name = [u.firstName ?? "", u.lastName ?? ""].filter(Boolean).join(" ").trim();
+  return name || u.email || "Unknown user";
+};
 
-  const moderationMutation = useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) =>
-      apiRequest("PATCH", `/api/admin/submissions/${id}`, {
-        status,
-        moderatedBy: user?.id,
-        moderationNotes: notes,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/submissions"] });
-      setModerationDialog({ open: false, submission: null, action: 'approve' });
-      setModerationNotes("");
-      toast({
-        title: "Submission updated",
-        description: "The submission has been successfully moderated.",
-      });
-    },
-  });
+const safeDate = (d?: string | number | Date | null) => {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleString();
+  } catch {
+    return "";
+  }
+};
 
-  const handleModeration = (submission: UserSubmissionWithUser, action: 'approve' | 'reject') => {
-    setModerationDialog({ open: true, submission, action });
-  };
+export function ModerationTable({
+  items,
+  title = "Content Moderation",
+  onApprove,
+  onReject,
+}: ModerationTableProps) {
+  // DEBUG: logga sempre i dati in ingresso
+  useEffect(() => {
+    console.groupCollapsed("[ModerationTable] props");
+    console.log("items:", items);
+    console.groupEnd();
+  }, [items]);
 
-  const confirmModeration = () => {
-    if (!moderationDialog.submission) return;
-
-    moderationMutation.mutate({
-      id: moderationDialog.submission.id,
-      status: moderationDialog.action === 'approve' ? 'approved' : 'rejected',
-      notes: moderationNotes.trim() || undefined,
-    });
-  };
-
-  const getSourceIcon = (url: string) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      return <Play className="h-4 w-4 text-red-500" />;
-    }
-    return <FileText className="h-4 w-4 text-gray-500" />;
-  };
-
-  const toggleSubmissionSelection = (id: string) => {
-    setSelectedSubmissions(prev =>
-      prev.includes(id)
-        ? prev.filter(s => s !== id)
-        : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedSubmissions.length === submissions.length) {
-      setSelectedSubmissions([]);
-    } else {
-      setSelectedSubmissions(submissions.map(s => s.id));
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="status-badge status-pending">Pending</Badge>;
-      case 'approved':
-        return <Badge className="status-badge status-approved">Approved</Badge>;
-      case 'rejected':
-        return <Badge className="status-badge status-rejected">Rejected</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  // Evita crash se items è undefined/null o non è un array
+  const rows = useMemo(() => {
+    if (!Array.isArray(items)) return [];
+    // filtra eventuali null/undefined per sicurezza
+    return items.filter(Boolean) as ModerationItem[];
+  }, [items]);
 
   return (
-    <>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={selectedSubmissions.length === submissions.length && submissions.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-              </TableHead>
-              <TableHead>Content</TableHead>
-              <TableHead>Submitter</TableHead>
-              <TableHead>Topics</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {submissions.map((submission) => (
-              <TableRow key={submission.id} className="hover:bg-gray-50">
-                <TableCell>
-                  <Checkbox
-                    checked={selectedSubmissions.includes(submission.id)}
-                    onCheckedChange={() => toggleSubmissionSelection(submission.id)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-start space-x-3">
-                    {getSourceIcon(submission.url)}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {submission.title}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {submission.url}
-                      </p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="" alt={`${submission.user.firstName} ${submission.user.lastName}`} />
-                      <AvatarFallback>
-                        {submission.user.firstName[0]}{submission.user.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {submission.user.firstName} {submission.user.lastName}
-                      </p>
-                      <p className="text-xs text-gray-500">{submission.user.email}</p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {submission.suggestedTopics && Array.isArray(submission.suggestedTopics) && 
-                      (submission.suggestedTopics as string[]).slice(0, 2).map((topicId: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          Topic {index + 1}
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No items to moderate.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground border-b">
+                <tr>
+                  <th className="py-2 pr-4">Title</th>
+                  <th className="py-2 pr-4">Source</th>
+                  <th className="py-2 pr-4">Topics</th>
+                  <th className="py-2 pr-4">Submitted By</th>
+                  <th className="py-2 pr-4">Created</th>
+                  <th className="py-2 pr-4">Flags</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-0 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => {
+                  // Tutto ciò che può essere undefined è opzionale con ?.
+                  const c = row?.content;
+                  const topics = c?.topics ?? [];
+                  const submitter = row?.submittedBy;
+
+                  // DEBUG puntuale per righe “sospette”
+                  if (!submitter || submitter?.firstName === undefined) {
+                    console.warn("[ModerationTable] Missing submitter or firstName at row", {
+                      index: idx,
+                      row,
+                    });
+                  }
+
+                  return (
+                    <tr key={(row?.id as string) ?? `row-${idx}`} className="border-b">
+                      <td className="py-2 pr-4 align-top">
+                        <div className="font-medium">
+                          {c?.title ?? "Untitled"}
+                        </div>
+                        {c?.url ? (
+                          <a
+                            href={c.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs underline text-primary break-all"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {c.url}
+                          </a>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">No URL</div>
+                        )}
+                      </td>
+
+                      <td className="py-2 pr-4 align-top">
+                        <Badge variant="secondary">
+                          {(c?.source ?? "unknown").toString()}
                         </Badge>
-                      ))
-                    }
-                  </div>
-                </TableCell>
-                <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                <TableCell className="text-sm text-gray-500">
-                  {new Date(submission.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    {submission.status === 'pending' && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleModeration(submission, 'approve')}
-                          className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleModeration(submission, 'reject')}
-                          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => window.open(submission.url, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                      </td>
 
-      {/* Moderation Dialog */}
-      <Dialog open={moderationDialog.open} onOpenChange={(open) => 
-        setModerationDialog({ ...moderationDialog, open })
-      }>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {moderationDialog.action === 'approve' ? 'Approve' : 'Reject'} Submission
-            </DialogTitle>
-            <DialogDescription>
-              {moderationDialog.action === 'approve' 
-                ? 'This submission will be processed and added to the content library.'
-                : 'This submission will be rejected and the user will be notified.'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          {moderationDialog.submission && (
-            <div className="py-4">
-              <h4 className="font-medium text-gray-900 mb-2">
-                {moderationDialog.submission.title}
-              </h4>
-              <p className="text-sm text-gray-600 mb-4">
-                {moderationDialog.submission.description}
-              </p>
-              <p className="text-xs text-gray-500 break-all">
-                {moderationDialog.submission.url}
-              </p>
-            </div>
-          )}
+                      <td className="py-2 pr-4 align-top">
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(topics) ? topics : []).slice(0, 4).map((t) => (
+                            <Badge key={t.id} variant="outline">
+                              {t.name}
+                            </Badge>
+                          ))}
+                          {Array.isArray(topics) && topics.length > 4 && (
+                            <span className="text-xs text-muted-foreground">
+                              +{topics.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Moderation Notes {moderationDialog.action === 'reject' && '(Required)'}
-            </label>
-            <Textarea
-              placeholder={
-                moderationDialog.action === 'approve'
-                  ? 'Optional notes about the approval...'
-                  : 'Please provide a reason for rejection...'
-              }
-              value={moderationNotes}
-              onChange={(e) => setModerationNotes(e.target.value)}
-              rows={3}
-            />
+                      <td className="py-2 pr-4 align-top">
+                        <div>{safeDisplayName(submitter)}</div>
+                        {submitter?.email && (
+                          <div className="text-xs text-muted-foreground">{submitter.email}</div>
+                        )}
+                      </td>
+
+                      <td className="py-2 pr-4 align-top">
+                        {safeDate(row?.createdAt)}
+                      </td>
+
+                      <td className="py-2 pr-4 align-top">
+                        {typeof row?.flagsCount === "number" ? row.flagsCount : 0}
+                      </td>
+
+                      <td className="py-2 pr-4 align-top">
+                        <Badge
+                          variant={
+                            row?.status === "approved"
+                              ? "default"
+                              : row?.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {(row?.status ?? "pending").toString()}
+                        </Badge>
+                      </td>
+
+                      <td className="py-2 pr-0 align-top">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onApprove) onApprove(row);
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onReject) onReject(row);
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setModerationDialog({ ...moderationDialog, open: false })}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmModeration}
-              disabled={
-                moderationMutation.isPending ||
-                (moderationDialog.action === 'reject' && !moderationNotes.trim())
-              }
-              className={
-                moderationDialog.action === 'approve'
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-red-600 hover:bg-red-700'
-              }
-            >
-              {moderationMutation.isPending ? 'Processing...' : 
-                moderationDialog.action === 'approve' ? 'Approve' : 'Reject'
-              }
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

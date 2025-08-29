@@ -1,48 +1,67 @@
 // server/vite.ts
-import type { Express } from "express";
-import { createServer as createViteServer, createLogger } from "vite";
-import type { Server } from "http";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Express } from "express";
+import type { Server } from "http";
+import { createServer as createViteServer, InlineConfig } from "vite";
 
-const log = createLogger();
+export async function setupVite(app: Express, httpServer: Server) {
+  // ✅ Carichiamo il config file alla root (dove c'è l'alias "@")
+  const inline: InlineConfig = {
+    // NON mettere root qui: lo prende dal config file
+    configFile: path.resolve(process.cwd(), "vite.config.ts"),
+    appType: "spa",
+    server: {
+      middlewareMode: true,
+      hmr: {
+        // HMR via lo stesso server HTTP → niente più WS che cade
+        server: httpServer,
+      },
+    },
+  };
 
-export async function setupVite(app: Express, _server: Server) {
-  // Usa SEMPRE il config del progetto (dove c’è l’alias "@")
-  const configFile = path.resolve(process.cwd(), "vite.config.ts");
-
-  const vite = await createViteServer({
-    configFile,
-    appType: "custom",
-    // Non passare root qui: lo prende dal config (root: "client")
-  });
-
+  const vite = await createViteServer(inline);
   app.use(vite.middlewares);
 
-  // index.html dal client, con transform di Vite
-  app.use("*", async (req, res, next) => {
+  // Fallback SPA in dev (usa il root letto dal config)
+  const clientRoot = vite.config.root; // es: <repo>/client
+  const clientIndex = path.join(clientRoot, "index.html");
+
+  app.get("*", async (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
     try {
-      const templatePath = path.resolve(process.cwd(), "client", "index.html");
-      let template = await fs.readFile(templatePath, "utf-8");
-      const html = await vite.transformIndexHtml(req.originalUrl, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(html);
-    } catch (e) {
-      log.error(e as any);
-      vite.ssrFixStacktrace(e as Error);
+      const htmlTpl = await fs.readFile(clientIndex, "utf-8");
+      const html = await vite.transformIndexHtml(req.originalUrl, htmlTpl);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).end(html);
+    } catch (e: any) {
+      vite.ssrFixStacktrace?.(e);
       next(e);
     }
   });
 }
 
 export async function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
-  const exists = await fs.stat(distPath).then(() => true).catch(() => false);
+  const distPublic = path.resolve(process.cwd(), "dist", "public");
+  const distIndex = path.join(distPublic, "index.html");
+
+  const exists = await fs
+    .access(distIndex)
+    .then(() => true)
+    .catch(() => false);
+
   if (!exists) {
-    throw new Error(
-      `dist/public non trovato. Esegui prima "npm run build". Path: ${distPath}`
-    );
+    console.warn("ℹ️ dist/public non trovato: modalità API-only");
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      res
+        .status(200)
+        .send(`<!doctype html><h1>DropDaily API-only</h1><p>No frontend build found.</p>`);
+    });
+    return;
   }
+
   const express = (await import("express")).default;
-  app.use(express.static(distPath));
-  app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+  app.use(express.static(distPublic));
+  app.get("*", (_req, res) => res.sendFile(distIndex));
 }
